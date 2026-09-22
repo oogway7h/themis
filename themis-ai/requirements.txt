@@ -1,0 +1,11 @@
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+numpy==2.5.3
+pandas==3.0.5
+statsmodels==0.15.0
+scikit-learn==1.9.1
+prophet
+asyncpg==0.31.0

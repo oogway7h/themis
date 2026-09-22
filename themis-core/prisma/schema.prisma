@@ -1,0 +1,386 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model PingLog {
+  id        String   @id @default(uuid())
+  source    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("ping_log")
+}
+
+enum FacultadSso {
+  FICCT
+}
+
+enum CarreraSso {
+  INGENIERIA_SISTEMAS
+  INGENIERIA_INFORMATICA
+  INGENIERIA_REDES_TELECOMUNICACIONES
+  INGENIERIA_ROBOTICA
+}
+
+enum TipoUsuarioSso {
+  ESTUDIANTE
+  DOCENTE
+  ADMINISTRATIVO
+}
+
+enum EstadoAcademicoSso {
+  ACTIVO
+  INACTIVO
+}
+
+enum PlatformRole {
+  ADMIN
+  AUTORIDAD_REGISTRO
+  AUDITOR
+  SUPERUSUARIO
+}
+
+model PlatformUser {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  passwordHash   String       @map("password_hash")
+  nombreCompleto String       @map("nombre_completo")
+  role           PlatformRole
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  authorities    Authority[]
+
+  @@map("platform_users")
+}
+
+enum ElectionStatus {
+  BORRADOR
+  REGISTRO_ABIERTO
+  REGISTRO_CERRADO
+  VOTACION_ABIERTA
+  CERRADA
+}
+
+model Election {
+  id                            String              @id @default(uuid())
+  nombre                        String
+  descripcion                   String?
+  registroInicio                DateTime            @map("registro_inicio")
+  registroFin                   DateTime            @map("registro_fin")
+  votacionInicio                DateTime            @map("votacion_inicio")
+  votacionFin                   DateTime            @map("votacion_fin")
+  estado                        ElectionStatus      @default(BORRADOR)
+  profundidadArbol              Int?                @map("profundidad_arbol")
+  elegibilidadFacultad          FacultadSso?        @map("elegibilidad_facultad")
+  elegibilidadCarreras          CarreraSso[]        @default([]) @map("elegibilidad_carreras")
+  elegibilidadTipoUsuario       TipoUsuarioSso?     @map("elegibilidad_tipo_usuario")
+  elegibilidadEstadoAcademico   EstadoAcademicoSso? @map("elegibilidad_estado_academico")
+  padronConfiguradoEn           DateTime?           @map("padron_configurado_en")
+  checkpointIntervalMinutes     Int?                @map("checkpoint_interval_minutes")
+  rateLimitThresholdPerMinute   Int?                @map("rate_limit_threshold_per_minute")
+  checkpointPolicyConfiguradoEn DateTime?           @map("checkpoint_policy_configurado_en")
+  createdAt                     DateTime            @default(now()) @map("created_at")
+  createdBy                     String              @map("created_by")
+  updatedAt                     DateTime            @updatedAt @map("updated_at")
+  updatedBy                     String              @map("updated_by")
+  lastCheckpointClosedAt        DateTime?           @map("last_checkpoint_closed_at")
+  onChainGroupId                String?             @map("on_chain_group_id")
+  onChainGroupCreatedAt         DateTime?           @map("on_chain_group_created_at")
+  merkleRoot                    String?             @map("merkle_root")
+  opciones                      Option[]
+  authorities                   Authority[]
+  registrationRequests          RegistrationRequest[]
+  presentedCredentials          PresentedCredential[]
+  registrationBatches           RegistrationBatch[]
+  rateAlerts                    RateAlert[]
+  voteReceipts                  VoteReceipt[]
+  voteSubmissions               VoteSubmission[]
+  chainSyncState                ChainSyncState?
+  result                        ElectionResult?
+
+  @@map("elections")
+}
+
+model Option {
+  id                    String                 @id @default(uuid())
+  electionId            String                 @map("election_id")
+  election              Election               @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  nombre                String
+  descripcion           String?
+  // CU-10: valor numerico (0..N-1, orden de creacion) usado como `message` de
+  // Semaphore -- Option.id es un UUID y no sirve como uint256 en el contrato.
+  onChainIndex          Int                    @map("on_chain_index")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  voteReceipts          VoteReceipt[]
+  voteSubmissions       VoteSubmission[]
+  electionResultOptions ElectionResultOption[]
+
+  @@unique([electionId, onChainIndex])
+  @@index([electionId])
+  @@map("options")
+}
+
+model Authority {
+  id             String       @id @default(uuid())
+  electionId     String       @map("election_id")
+  election       Election     @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  platformUserId String       @map("platform_user_id")
+  platformUser   PlatformUser @relation(fields: [platformUserId], references: [id])
+  rolDescriptivo String       @map("rol_descriptivo")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  createdBy      String       @map("created_by")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  updatedBy      String       @map("updated_by")
+  batchApprovals BatchApproval[]
+
+  @@unique([electionId, platformUserId])
+  @@index([electionId])
+  @@map("authorities")
+}
+
+enum RegistrationRequestStatus {
+  PENDING
+  QUEUED
+  BATCHED
+  INSERTED
+  REJECTED
+}
+
+// CU-05: una fila por votante que se registra a una eleccion. No contiene
+// identidad real - scopedTokenHash es HMAC(SSO_MOCK_SECRET, sub + electionId),
+// no reversible hacia el UUID real desde este servicio (regla 2 del CLAUDE.md
+// raiz). batchId/aprobaciones de CU-07 en adelante quedan fuera por ahora,
+// ver docs/modelo-bd-registro.md.
+model RegistrationRequest {
+  id              String                    @id @default(uuid())
+  electionId      String                    @map("election_id")
+  election        Election                  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  scopedTokenHash String                    @map("scoped_token_hash")
+  blindedValue    String                    @map("blinded_value")
+  status          RegistrationRequestStatus @default(PENDING)
+  createdAt       DateTime                  @default(now()) @map("created_at")
+
+  @@unique([electionId, scopedTokenHash])
+  @@index([electionId])
+  @@map("registration_requests")
+}
+
+enum PresentedCredentialStatus {
+  PENDING
+  BATCHED
+  INSERTED
+  REJECTED
+}
+
+// Segundo paso, anonimo, de CU-05: el dispositivo presenta la credencial
+// certificada (commitment real + firma ya descegada) sin ninguna conexion
+// con el registro original (sin scoped_token_hash, sin assertion). La firma
+// RSA valida es la unica prueba de habilitacion que exige este endpoint.
+// Ver src/modules/registration/README.md.
+model PresentedCredential {
+  id              String                    @id @default(uuid())
+  electionId      String                    @map("election_id")
+  election        Election                  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  commitment      String
+  preparedMessage String                    @map("prepared_message")
+  signature       String
+  status          PresentedCredentialStatus @default(PENDING)
+  presentedAt     DateTime                  @default(now()) @map("presented_at")
+  batchId         String?                   @map("batch_id")
+  batch           RegistrationBatch?        @relation(fields: [batchId], references: [id])
+
+  @@unique([electionId, commitment])
+  @@index([electionId])
+  @@index([electionId, status])
+  @@map("presented_credentials")
+}
+
+enum RegistrationBatchStatus {
+  PENDING_APPROVAL
+  APPROVED
+  INSERTED
+  INSERTION_FAILED
+}
+
+// CU-07/CU-08/CU-09: un lote cerrado automaticamente por el cron de checkpoint
+// (ver src/modules/checkpoints/), que agrupa PresentedCredential.commitment
+// pendientes en el momento del cierre. approvalsRequired congela
+// MULTISIG_THRESHOLD al cerrar (no se relee al aprobar) para no cambiar el
+// umbral de un lote ya en curso si algun dia se vuelve configurable.
+model RegistrationBatch {
+  id                String                   @id @default(uuid())
+  electionId        String                   @map("election_id")
+  election          Election                 @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  status            RegistrationBatchStatus  @default(PENDING_APPROVAL)
+  credentialCount   Int                      @map("credential_count")
+  approvalsRequired Int                      @map("approvals_required")
+  merkleRootBefore  String?                  @map("merkle_root_before")
+  merkleRootAfter   String?                  @map("merkle_root_after")
+  onChainTxHash     String?                  @map("on_chain_tx_hash")
+  onChainGroupId    String?                  @map("on_chain_group_id")
+  // CU-10: el array exacto (mismo orden) que se mando a `addMembers` al
+  // insertar este lote. Es la fuente de verdad para reconstruir el Group de
+  // Semaphore del lado del votante -- no se reconstruye leyendo
+  // PresentedCredential porque su orden de lectura no esta garantizado.
+  onChainMemberCommitments String[]          @default([]) @map("on_chain_member_commitments")
+  closedAt          DateTime                 @default(now()) @map("closed_at")
+  approvedAt        DateTime?                @map("approved_at")
+  insertedAt        DateTime?                @map("inserted_at")
+  failureReason     String?                  @map("failure_reason")
+  credentials       PresentedCredential[]
+  approvals         BatchApproval[]
+
+  @@index([electionId, status])
+  @@map("registration_batches")
+}
+
+// CU-08: una fila = una firma/aprobacion de una autoridad sobre un lote.
+// El multisig 3-de-5 se implementa contando filas (ver approvalsRequired en
+// RegistrationBatch), no con una columna "aprobado". authorityId referencia
+// el asiento (Authority.id), no platformUserId directamente, para que "la
+// misma autoridad no aprueba dos veces" siga siendo correcto aunque
+// ReplaceAuthorityUseCase cambie la cuenta de un asiento a mitad de ciclo.
+model BatchApproval {
+  id             String            @id @default(uuid())
+  batchId        String            @map("batch_id")
+  batch          RegistrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  authorityId    String            @map("authority_id")
+  authority      Authority         @relation(fields: [authorityId], references: [id])
+  platformUserId String            @map("platform_user_id")
+  approvedAt     DateTime          @default(now()) @map("approved_at")
+
+  @@unique([batchId, authorityId])
+  @@index([batchId])
+  @@map("batch_approvals")
+}
+
+enum RateAlertSeverity {
+  WARNING
+}
+
+// CU-06: historial de "esto se registro mas rapido de lo normal, revisenlo".
+// Puramente informativo -- no bloquea SubmitRegistrationRequestUseCase ni
+// PresentCredentialUseCase.
+model RateAlert {
+  id                 String            @id @default(uuid())
+  electionId         String            @map("election_id")
+  election           Election          @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  windowStart        DateTime          @map("window_start")
+  windowEnd          DateTime          @map("window_end")
+  registrationCount  Int               @map("registration_count")
+  thresholdPerMinute Int               @map("threshold_per_minute")
+  severity           RateAlertSeverity @default(WARNING)
+  createdAt          DateTime          @default(now()) @map("created_at")
+
+  @@index([electionId, createdAt])
+  @@map("rate_alerts")
+}
+
+enum VoteSubmissionSource {
+  RELAY
+  CHAIN_SYNC
+}
+
+// CU-10/CU-11: un voto validado on-chain (evento ProofValidated de
+// Semaphore.validateProof). Ninguna columna conecta esta fila con
+// PresentedCredential/RegistrationRequest ni con identidad real (regla 2 del
+// CLAUDE.md raiz) -- nullifier/merkleTreeRoot ya son publicos on-chain por
+// diseno de Semaphore, optionId se guarda en claro a proposito (solo la
+// identidad es anonima, la distribucion de votos es publica). blockNumber es
+// Int (no BigInt): valido en Hardhat local/testnet, nunca supera 2^31 aqui.
+model VoteSubmission {
+  id             String               @id @default(uuid())
+  electionId     String               @map("election_id")
+  election       Election             @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  optionId       String               @map("option_id")
+  option         Option               @relation(fields: [optionId], references: [id])
+  nullifier      String
+  merkleTreeRoot String               @map("merkle_tree_root")
+  scope          String
+  onChainTxHash  String?              @map("on_chain_tx_hash")
+  blockNumber    Int?                 @map("block_number")
+  source         VoteSubmissionSource
+  submittedAt    DateTime             @default(now()) @map("submitted_at")
+
+  @@unique([electionId, nullifier])
+  @@index([electionId, optionId])
+  @@map("vote_submissions")
+}
+
+// CU-11/CU-14: puntero de sincronizacion de eventos ProofValidated leidos
+// desde el grupo on-chain de la eleccion (scope = election.onChainGroupId).
+// Red de seguridad, mismo espiritu que RetryPendingInsertionsUseCase de CU-09.
+model ChainSyncState {
+  id              String   @id @default(uuid())
+  electionId      String   @unique @map("election_id")
+  election        Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  lastSyncedBlock Int      @map("last_synced_block")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("chain_sync_state")
+}
+
+// CU-14: snapshot inmutable del conteo final al cerrar la eleccion. Una vez
+// creado no se reescribe -- idempotente via el unique de electionId.
+model ElectionResult {
+  id                String                 @id @default(uuid())
+  electionId        String                 @unique @map("election_id")
+  election          Election               @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  totalVotes        Int                    @map("total_votes")
+  finalMerkleRoot   String                 @map("final_merkle_root")
+  sourceBlockNumber Int                    @map("source_block_number")
+  computedAt        DateTime               @default(now()) @map("computed_at")
+  opciones          ElectionResultOption[]
+
+  @@map("election_results")
+}
+
+model ElectionResultOption {
+  id               String         @id @default(uuid())
+  electionResultId String         @map("election_result_id")
+  electionResult   ElectionResult @relation(fields: [electionResultId], references: [id], onDelete: Cascade)
+  optionId         String         @map("option_id")
+  option           Option         @relation(fields: [optionId], references: [id])
+  voteCount        Int            @map("vote_count")
+
+  @@unique([electionResultId, optionId])
+  @@map("election_result_options")
+}
+
+model MockSsoUser {
+  id                  String             @id @default(uuid())
+  codigoInstitucional String             @unique @map("codigo_institucional")
+  passwordHash        String             @map("password_hash")
+  nombreCompleto      String             @map("nombre_completo")
+  facultad            FacultadSso
+  carrera             CarreraSso
+  tipoUsuario         TipoUsuarioSso     @map("tipo_usuario")
+  estadoAcademico     EstadoAcademicoSso @map("estado_academico")
+  createdAt           DateTime           @default(now()) @map("created_at")
+
+  @@map("mock_sso_users")
+}
+
+// CU-10: recibo anonimo del voto emitido para auditoria y escrutinio.
+// No contiene identidad real, credenciales, tokens ni IP.
+model VoteReceipt {
+  id         String   @id @default(uuid())
+  electionId String   @map("election_id")
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  optionId   String   @map("option_id")
+  option     Option   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  nullifier  String   @unique
+  txHash     String   @map("tx_hash")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([electionId])
+  @@map("vote_receipts")
+}
+

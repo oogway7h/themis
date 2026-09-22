@@ -1,0 +1,24 @@
+{
+  "$id": "PlatformSessionPayload",
+  "type": "object",
+  "properties": {
+    "sub": {
+      "type": "string",
+      "format": "uuid",
+      "description": "id del PlatformUser (Administrador, Autoridad de Registro o Auditor)"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["ADMIN", "AUTORIDAD_REGISTRO", "AUDITOR"]
+    },
+    "iat": {
+      "type": "integer",
+      "description": "epoch seconds, momento de emision"
+    },
+    "exp": {
+      "type": "integer",
+      "description": "epoch seconds, momento de expiracion (iat + 2h)"
+    }
+  },
+  "required": ["sub", "role", "iat", "exp"]
+}

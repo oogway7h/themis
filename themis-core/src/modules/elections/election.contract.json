@@ -1,0 +1,47 @@
+{
+  "Election": {
+    "id": "string (uuid)",
+    "nombre": "string",
+    "descripcion": "string | null",
+    "registroInicio": "string (ISO 8601)",
+    "registroFin": "string (ISO 8601)",
+    "votacionInicio": "string (ISO 8601)",
+    "votacionFin": "string (ISO 8601)",
+    "estado": "'BORRADOR' | 'REGISTRO_ABIERTO' | 'REGISTRO_CERRADO' | 'VOTACION_ABIERTA' | 'CERRADA'",
+    "mecanismoCriptografico": "'SEMAPHORE'",
+    "umbralFirmas": "number",
+    "opciones": "Option[]",
+    "createdAt": "string (ISO 8601)",
+    "createdBy": "string (uuid)",
+    "updatedAt": "string (ISO 8601)",
+    "updatedBy": "string (uuid)",
+    "profundidadArbol": "number | null",
+    "capacidadMaxima": "string | null (BigInt serializado)",
+    "elegibilidadFacultad": "'FICCT' | null",
+    "elegibilidadCarreras": "CarreraSso[]",
+    "elegibilidadTipoUsuario": "'ESTUDIANTE' | 'DOCENTE' | 'ADMINISTRATIVO' | null",
+    "elegibilidadEstadoAcademico": "'ACTIVO' | 'INACTIVO' | null",
+    "padronConfiguradoEn": "string (ISO 8601) | null",
+    "checkpointIntervalMinutes": "number | null",
+    "rateLimitThresholdPerMinute": "number | null",
+    "checkpointPolicyConfiguradoEn": "string (ISO 8601) | null"
+  },
+  "Option": {
+    "id": "string (uuid)",
+    "electionId": "string (uuid)",
+    "nombre": "string",
+    "descripcion": "string | null"
+  },
+  "Authority": {
+    "id": "string (uuid)",
+    "rolDescriptivo": "string",
+    "platformUserEmail": "string (solo visible para ADMIN)",
+    "createdAt": "string (ISO 8601)",
+    "updatedAt": "string (ISO 8601)"
+  },
+  "CheckpointPolicyEfectiva": {
+    "checkpointIntervalMinutes": "number",
+    "rateLimitThresholdPerMinute": "number",
+    "esValorPorDefecto": "boolean"
+  }
+}

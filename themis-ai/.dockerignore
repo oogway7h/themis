@@ -1,0 +1,14 @@
+.venv
+venv
+__pycache__
+*.pyc
+.git
+.env
+.env.local
+.pytest_cache
+.ruff_cache
+.mypy_cache
+tests
+notebooks
+.vscode
+.idea

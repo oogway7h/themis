@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+artifacts
+cache
+typechain-types
+coverage
+.git
+.env
+.env.local
+*.log
+.vscode
+.idea
+test
+contracts
+scripts
+hardhat.config.ts

@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Identidad Themis: ink #0F172A · paper #F8FAFC · accent #12B39B */
+  --radius: 0.5rem;
+  --brand: #12b39b;
+  --brand-strong: #0a7f6c; /* accent legible como texto sobre claro */
+  --brand-soft: #e3f6f2;
+  --ink: #0f172a;
+  --paper: #f8fafc;
+  --success: #0a7f6c;
+  --success-soft: #e3f6f2;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+  --secondary: #eef2f7;
+  --secondary-foreground: #0f172a;
+  --muted: #eef2f7;
+  --muted-foreground: #5b6478;
+  --accent: #e3f6f2;
+  --accent-foreground: #0f172a;
+  --destructive: #c4302b;
+  --destructive-foreground: #f8fafc;
+  --border: #e2e6ee;
+  --input: #d8dde7;
+  --ring: #12b39b;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-primary: #12b39b;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #1a2540;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #12b39b;
+  /* Paleta categorica para graficos (dashboard de resultados, CU-11):
+     distinta del teal de marca a proposito, para no confundir "en vivo/marca"
+     con "candidato" cuando se listan varias opciones. */
+  --chart-1: #2f4c81;
+  --chart-1-soft: #e8edf6;
+  --chart-2: #a9762f;
+  --chart-2-soft: #f6eedc;
+  --chart-3: #7d3552;
+  --chart-3-soft: #f3e7eb;
+  --chart-4: #64748b;
+  --chart-4-soft: #eef1f5;
+}
+
+.dark {
+  --background: #0b1120;
+  --foreground: #f8fafc;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --primary: #12b39b;
+  --primary-foreground: #0f172a;
+  --secondary: #1a2540;
+  --secondary-foreground: #f8fafc;
+  --muted: #1a2540;
+  --muted-foreground: #94a3b8;
+  --accent: #1a2540;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef6b62;
+  --destructive-foreground: #0f172a;
+  --border: #1e293b;
+  --input: #2a3650;
+  --ring: #12b39b;
+  --brand-strong: #34d1b8;
+  --brand-soft: #10302d;
+  --success: #34d1b8;
+  --success-soft: #10302d;
+  --sidebar: #0a1020;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-primary: #12b39b;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #1a2540;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #12b39b;
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-1: var(--chart-1);
+  --color-chart-1-soft: var(--chart-1-soft);
+  --color-chart-2: var(--chart-2);
+  --color-chart-2-soft: var(--chart-2-soft);
+  --color-chart-3: var(--chart-3);
+  --color-chart-3-soft: var(--chart-3-soft);
+  --color-chart-4: var(--chart-4);
+  --color-chart-4-soft: var(--chart-4-soft);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--brand);
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  /* Título de página: barra de acento de marca sobre el h1. */
+  .page-title {
+    position: relative;
+    padding-top: 0.85rem;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--foreground);
+  }
+  .page-title::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2rem;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--brand);
+  }
+}

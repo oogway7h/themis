@@ -1,0 +1,56 @@
+name: themis-deployment
+
+services:
+  proxy:
+    image: nginx:1.29-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
+      - core
+      - ai
+
+  web:
+    build:
+      context: ./themis-web
+      args:
+        VITE_API_BASE_URL: "/api/v1"
+
+  chain:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && npx hardhat node --hostname 0.0.0.0"
+    environment:
+      HARDHAT_DISABLE_TELEMETRY_PROMPT: "true"
+    volumes:
+      - ./themis-core:/app
+      - chain_modules:/app/node_modules
+
+  core:
+    build:
+      context: ./themis-core
+      dockerfile: docker/Dockerfile
+    env_file:
+      - path: ./themis-core/.env.example
+        required: true
+      - path: ./themis-core/.env
+        required: false
+    environment:
+      RPC_URL: http://chain:8545
+      AI_SERVICE_URL: http://ai:8000
+    depends_on:
+      - chain
+
+  ai:
+    build:
+      context: ./themis-ai
+    env_file:
+      - path: ./themis-ai/.env.example
+        required: true
+      - path: ./themis-ai/.env
+        required: false
+
+volumes:
+  chain_modules:

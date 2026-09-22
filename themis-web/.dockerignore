@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+build
+.git
+.env
+.env.local
+*.log
+.vite
+.vscode
+.idea

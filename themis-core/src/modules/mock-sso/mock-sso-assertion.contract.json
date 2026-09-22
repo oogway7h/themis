@@ -1,0 +1,32 @@
+{
+  "$id": "MockSsoAssertionPayload",
+  "type": "object",
+  "properties": {
+    "sub": {
+      "type": "string",
+      "format": "uuid",
+      "description": "uuid_real del usuario institucional (id de MockSsoUser)"
+    },
+    "facultad": {
+      "type": "string",
+      "enum": ["FICCT"]
+    },
+    "tipoUsuario": {
+      "type": "string",
+      "enum": ["ESTUDIANTE", "DOCENTE", "ADMINISTRATIVO"]
+    },
+    "habilitado": {
+      "type": "boolean",
+      "description": "true solo si facultad=FICCT, tipoUsuario=ESTUDIANTE y estadoAcademico=ACTIVO"
+    },
+    "iat": {
+      "type": "integer",
+      "description": "epoch seconds, momento de emision"
+    },
+    "exp": {
+      "type": "integer",
+      "description": "epoch seconds, momento de expiracion (iat + SSO_MOCK_TOKEN_TTL_SECONDS)"
+    }
+  },
+  "required": ["sub", "facultad", "tipoUsuario", "habilitado", "iat", "exp"]
+}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100" role="img" aria-label="Themis">
+  <title>Themis</title>
+  <rect width="400" height="100" fill="#F8FAFC"/>
+  <path d="M63.3 17.08A35.5 35.5 0 1 1 36.7 17.08" fill="none" stroke="#0F172A" stroke-width="11" stroke-linecap="round"/>
+  <rect x="20" y="44.5" width="60" height="11" rx="5.5" fill="#12B39B"/>
+  <g transform="translate(126 24) scale(0.52)" color="#0F172A">
+    <g fill="currentColor">
+      <path d="M0 0H76V16H46V100H30V16H0Z"/>
+      <path d="M98 0H114V42H158V0H174V100H158V58H114V100H98Z"/>
+      <path d="M196 0H264V16H212V42H254V58H212V84H264V100H196Z"/>
+      <path d="M286 0H304L332 43L360 0H378V100H362V29L332 72L302 29V100H286Z"/>
+      <path d="M400 0H416V100H400Z"/>
+    </g>
+    <path d="M500 28C500 12 487 8 473 8C459 8 446 13 446 27C446 41 459 46 473 50C487 54 500 59 500 73C500 87 487 92 473 92C459 92 446 88 446 72" fill="none" stroke="currentColor" stroke-width="16"/>
+  </g>
+</svg>

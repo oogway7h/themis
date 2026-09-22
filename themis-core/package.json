@@ -1,0 +1,98 @@
+{
+  "name": "themis-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Themis - backend, relayer y contratos inteligentes",
+  "license": "MIT",
+  "packageManager": "pnpm@11.10.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "seed:mock-sso": "ts-node prisma/seed-mock-sso.ts",
+    "seed:platform-users": "ts-node prisma/seed-platform-users.ts",
+    "chain:node": "hardhat node",
+    "chain:compile": "hardhat compile",
+    "chain:deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "chain:deploy:semaphore:local": "hardhat run scripts/deploy-semaphore.ts --network localhost",
+    "registration:generate-signing-key": "ts-node scripts/generate-registration-signing-key.ts",
+    "test:manual-flow": "ts-node scripts/manual-test-full-flow.ts"
+  },
+  "dependencies": {
+    "@cloudflare/blindrsa-ts": "^0.4.6",
+    "@nestjs/common": "12.0.1",
+    "@nestjs/config": "12.0.0",
+    "@nestjs/core": "12.0.1",
+    "@nestjs/jwt": "^12.0.1",
+    "@nestjs/passport": "^12.0.0",
+    "@nestjs/platform-express": "12.0.1",
+    "@nestjs/schedule": "^6.1.3",
+    "@nestjs/swagger": "12.0.1",
+    "@prisma/client": "6.19.3",
+    "@semaphore-protocol/contracts": "^4.14.3",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "cookie-parser": "^1.4.7",
+    "ethers": "6.17.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.6.4"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "12.0.0",
+    "@nestjs/schematics": "12.0.1",
+    "@nestjs/testing": "^12.0.1",
+    "@nomicfoundation/hardhat-ethers": "3.1.3",
+    "@semaphore-protocol/group": "4.14.3",
+    "@semaphore-protocol/hardhat": "4.14.3",
+    "@semaphore-protocol/identity": "^4.14.3",
+    "@semaphore-protocol/proof": "4.14.3",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "26.5.1",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/supertest": "^7.2.1",
+    "@zk-kit/lean-imt.sol": "2.0.1",
+    "dotenv": "17.4.2",
+    "hardhat": "^2.29.1",
+    "jest": "^30.5.1",
+    "poseidon-solidity": "0.0.5",
+    "prisma": "6.19.3",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.12",
+    "ts-node": "10.9.2",
+    "tsconfig-paths": "4.2.0",
+    "typescript": "5.9.3"
+  },
+  "jest": {
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    }
+  }
+}
