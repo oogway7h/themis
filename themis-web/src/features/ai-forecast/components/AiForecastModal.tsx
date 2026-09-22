@@ -41,6 +41,9 @@ interface ForecastResponse {
   }[];
 }
 
+const AI_BASE_URL = (import.meta.env.VITE_AI_BASE_URL ?? 'http://localhost:8000').replace(/\/+$/, '');
+const AI_SERVICE_TOKEN = import.meta.env.VITE_AI_SERVICE_TOKEN ?? '';
+
 export function AiForecastModal() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,11 +60,11 @@ export function AiForecastModal() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/forecast', {
+      const response = await fetch(`${AI_BASE_URL}/api/v1/forecast`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-service-token': 'cambiar-por-el-mismo-valor-que-AI_SERVICE_TOKEN-en-themis-core',
+          'x-service-token': AI_SERVICE_TOKEN,
         },
         body: JSON.stringify({
           electionId: "auto",
