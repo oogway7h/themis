@@ -3,7 +3,6 @@ import { Contract } from 'ethers';
 import { APP_CONFIG } from '../../../config/configuration';
 import type { AppConfig } from '../../../config/configuration';
 import { BlockchainService } from '../../../shared/blockchain/blockchain.service';
-import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { InvalidProofError, DuplicateVoteError } from '../domain/voting.errors';
 
 const SEMAPHORE_VOTING_ABI = [
@@ -34,7 +33,6 @@ export class VotingOnChainService {
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly blockchain: BlockchainService,
-    private readonly prisma: PrismaService,
   ) {}
 
   async castVote(
@@ -71,10 +69,16 @@ export class VotingOnChainService {
         `Enviando voto on-chain: groupId=${groupId}, nullifier=${proof.nullifier}`,
       );
 
-      // Si tenemos ThemisVoting desplegado usamos castVote; si es SemaphoreRegistry directo usamos validateProof
-      const tx = votingAddress
-        ? await contract.castVote(BigInt(groupId), formattedProof)
-        : await contract.validateProof(BigInt(groupId), formattedProof);
+      // Si tenemos ThemisVoting desplegado usamos castVote; si es SemaphoreRegistry directo usamos validateProof.
+      // Serializado: hay una sola wallet relayer, y dos votos concurrentes
+      // leerian el mismo nonce.
+      const tx = await this.blockchain.sendSerialized(
+        `castVote(group=${groupId})`,
+        () =>
+          votingAddress
+            ? contract.castVote(BigInt(groupId), formattedProof)
+            : contract.validateProof(BigInt(groupId), formattedProof),
+      );
 
       const receipt = await tx.wait();
       return {
@@ -103,75 +107,6 @@ export class VotingOnChainService {
       }
 
       throw error;
-    }
-  }
-
-  async syncPendingCommitments(
-    electionId: string,
-    onChainGroupId: string,
-  ): Promise<void> {
-    const registryAddress = this.config.chain.semaphoreRegistryAddress;
-    if (!registryAddress) return;
-
-    const pendingRows = await this.prisma.presentedCredential.findMany({
-      where: { electionId, status: 'PENDING' },
-    });
-
-    if (pendingRows.length === 0) return;
-
-    try {
-      const wallet = this.blockchain.getWallet();
-      const registry = new Contract(
-        registryAddress,
-        [
-          'function createGroup(address admin, uint256 merkleTreeDuration) returns (uint256)',
-          'function groupCounter() view returns (uint256)',
-          'function addMembers(uint256 groupId, uint256[] identityCommitments)',
-          'function getMerkleTreeRoot(uint256 groupId) view returns (uint256)',
-          'function hasMember(uint256 groupId, uint256 identityCommitment) view returns (bool)',
-        ],
-        wallet,
-      );
-
-      const groupId = BigInt(onChainGroupId);
-      let counter = (await registry.groupCounter()) as bigint;
-      while (counter <= groupId) {
-        this.logger.log(`Creando grupo ${counter} faltante en blockchain para sincronizar elección...`);
-        const txCreate = await registry.createGroup(wallet.address, 3600n);
-        await txCreate.wait();
-        counter = (await registry.groupCounter()) as bigint;
-      }
-
-      for (const row of pendingRows) {
-        const commitmentBigInt = BigInt(row.commitment);
-        const alreadyMember = await registry.hasMember(groupId, commitmentBigInt);
-        if (!alreadyMember) {
-          const nonce = await this.blockchain
-            .getProvider()
-            .getTransactionCount(wallet.address, 'latest');
-          const tx = await registry.addMembers(groupId, [commitmentBigInt], {
-            nonce,
-          });
-          await tx.wait();
-        }
-        await this.prisma.presentedCredential.update({
-          where: { id: row.id },
-          data: { status: 'INSERTED' },
-        });
-      }
-
-      const newRoot = (await registry.getMerkleTreeRoot(groupId)) as bigint;
-      await this.prisma.election.update({
-        where: { id: electionId },
-        data: { merkleRoot: newRoot.toString() },
-      });
-      this.logger.log(
-        `Auto-reconciliados ${pendingRows.length} commitments pendientes on-chain para eleccion ${electionId}`,
-      );
-    } catch (err) {
-      this.logger.warn(
-        `No se pudo sincronizar commitments pendientes para eleccion ${electionId}: ${(err as Error).message}`,
-      );
     }
   }
 }

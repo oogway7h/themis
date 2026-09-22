@@ -24,7 +24,7 @@ function computeDueAt(election: Election): Date {
  * CU-07, orquestacion: invocada por el cron (ver CheckpointScheduler). Para
  * cada eleccion con registro abierto y checkpoint vencido, dispara
  * CloseCheckpointUseCase. Tick del cron: EVERY_MINUTE, mas fino que el
- * checkpointIntervalMinutes minimo (5 min) para no violar la configuracion
+ * checkpointIntervalMinutes minimo (1 min) para no violar la configuracion
  * de ninguna eleccion.
  */
 @Injectable()

@@ -1,8 +1,11 @@
 import { Election } from '../../elections/domain/election.entity';
 import { ElectionClosedError, RegistrationWindowClosedError } from './registration.errors';
 
+// Solo REGISTRO_ABIERTO: aceptar registros con la votacion ya abierta permite
+// sumar votantes al padron cuando el conteo en vivo (CU-11) ya muestra
+// resultados parciales.
 export function assertRegistrationWindowOpen(election: Election): void {
-  if (election.estado !== 'REGISTRO_ABIERTO' && election.estado !== 'VOTACION_ABIERTA') {
+  if (election.estado !== 'REGISTRO_ABIERTO') {
     throw new RegistrationWindowClosedError();
   }
 }

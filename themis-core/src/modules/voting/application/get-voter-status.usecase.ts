@@ -12,8 +12,6 @@ import { ElectionNotFoundError } from '../domain/voting.errors';
 export interface VoterStatusResult {
   electionId: string;
   isRegistered: boolean;
-  hasVoted: boolean;
-  votedAt: string | null;
 }
 
 function computeScopedTokenHash(
@@ -48,14 +46,9 @@ export class GetVoterStatusUseCase {
       throw new ElectionNotFoundError();
     }
 
-    const verification = this.verifyMockAssertion.execute({ assertion, ignoreExpiry: true });
+    const verification = this.verifyMockAssertion.execute({ assertion });
     if (!verification.valid) {
-      return {
-        electionId,
-        isRegistered: false,
-        hasVoted: false,
-        votedAt: null,
-      };
+      return { electionId, isRegistered: false };
     }
 
     const scopedTokenHash = computeScopedTokenHash(
@@ -68,20 +61,14 @@ export class GetVoterStatusUseCase {
       electionId,
       scopedTokenHash,
     );
-    const hasVoted = await this.votingRepository.hasVoterVoted(
-      electionId,
-      scopedTokenHash,
-    );
 
+    // No se loguea el scopedTokenHash: identifica a la persona, y dejarlo en
+    // el log junto a la hora reintroduce por otra via la correlacion que la
+    // tabla voter_participations permitia.
     this.logger.log(
-      `Estado del elector para eleccion ${electionId}: isRegistered=${isRegistered}, hasVoted=${hasVoted}`,
+      `Estado del elector consultado para eleccion ${electionId}`,
     );
 
-    return {
-      electionId,
-      isRegistered,
-      hasVoted,
-      votedAt: null,
-    };
+    return { electionId, isRegistered };
   }
 }

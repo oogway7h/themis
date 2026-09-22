@@ -58,7 +58,7 @@ export class SubmitRegistrationRequestUseCase {
     }
     assertRegistrationWindowOpen(election);
 
-    const verification = this.verifyMockAssertion.execute({ assertion: input.assertion, ignoreExpiry: true });
+    const verification = this.verifyMockAssertion.execute({ assertion: input.assertion });
     if (!verification.valid) {
       throw new RegistrationInvalidAssertionError();
     }

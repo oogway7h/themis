@@ -1,0 +1,13 @@
+-- voter_participations guardaba (scoped_token_hash, voted_at): identificaba a
+-- la persona junto al momento en que voto, y cruzar esa hora con
+-- vote_receipts.created_at / vote_submissions.submitted_at permitia asociar al
+-- votante con la opcion que eligio. Eso viola la regla 2 del CLAUDE.md raiz.
+--
+-- La tabla nunca estuvo en schema.prisma: la creaba PrismaService.onModuleInit
+-- con CREATE TABLE IF NOT EXISTS, por eso este DROP usa IF EXISTS y no hay un
+-- CREATE previo que revertir.
+--
+-- El doble voto lo impide el nullifier on-chain (unique en vote_submissions y
+-- rechazo del contrato Semaphore); el cliente sabe si ya voto por el recibo
+-- que guarda en el dispositivo.
+DROP TABLE IF EXISTS "voter_participations";

@@ -69,7 +69,7 @@ describe('ConfigureCheckpointPolicyUseCase / GetEffectivePolicyUseCase', () => {
 
     await expect(
       configureUseCase.execute(election.id, {
-        checkpointIntervalMinutes: 2,
+        checkpointIntervalMinutes: 0,
         rateLimitThresholdPerMinute: 50,
       }, 'admin-2'),
     ).rejects.toBeInstanceOf(CheckpointIntervalOutOfRangeError);

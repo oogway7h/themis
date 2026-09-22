@@ -9,8 +9,8 @@ export const checkpointPolicySchema = z.object({
     .min(1, 'Ingresa un número')
     .refine((value) => Number.isInteger(Number(value)), 'Debe ser un número entero')
     .refine(
-      (value) => Number(value) >= 5 && Number(value) <= 1440,
-      'El intervalo debe estar entre 5 y 1440 minutos',
+      (value) => Number(value) >= 1 && Number(value) <= 1440,
+      'El intervalo debe estar entre 1 y 1440 minutos',
     ),
   rateLimitThresholdPerMinute: z
     .string()

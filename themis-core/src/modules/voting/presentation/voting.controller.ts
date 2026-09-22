@@ -5,7 +5,9 @@ import {
   HttpCode,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ListPublicElectionsUseCase } from '../application/list-public-elections.usecase';
 import { GetPublicElectionUseCase } from '../application/get-public-election.usecase';
@@ -21,6 +23,7 @@ import {
   VoterStatusResponseDto,
 } from './dto/voter-status.dto';
 
+@UseGuards(ThrottlerGuard)
 @ApiTags('voting')
 @Controller()
 export class VotingController {
@@ -88,7 +91,6 @@ export class VotingController {
       electionId,
       optionId: body.optionId,
       proof: body.proof,
-      assertion: body.assertion,
     });
     return VoteResponseDto.fromDomain(receipt);
   }
@@ -110,8 +112,6 @@ export class VotingController {
     return {
       electionId: status.electionId,
       isRegistered: status.isRegistered,
-      hasVoted: status.hasVoted,
-      votedAt: status.votedAt,
     };
   }
 }

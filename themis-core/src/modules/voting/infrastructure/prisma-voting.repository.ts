@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import type {
@@ -125,43 +124,6 @@ export class PrismaVotingRepository implements VotingRepository {
     });
 
     return rows.map((r) => r.commitment);
-  }
-
-  async markVoterHasVoted(electionId: string, scopedTokenHash: string): Promise<void> {
-    const id = randomUUID();
-    try {
-      await this.prisma.$executeRaw`
-        INSERT INTO "voter_participations" ("id", "election_id", "scoped_token_hash", "voted_at")
-        VALUES (${id}, ${electionId}, ${scopedTokenHash}, NOW())
-        ON CONFLICT ("election_id", "scoped_token_hash") DO NOTHING
-      `;
-      this.logger.log(
-        `Voto asentado en padrón para elector (${scopedTokenHash.substring(0, 10)}...) en elección ${electionId}`,
-      );
-    } catch (err) {
-      this.logger.error(
-        `Error al asentar voto en padrón: ${(err as Error).message}`,
-      );
-    }
-  }
-
-  async hasVoterVoted(electionId: string, scopedTokenHash: string): Promise<boolean> {
-    try {
-      const rows = await this.prisma.$queryRaw<{ count: bigint }[]>`
-        SELECT count(*)::bigint as count FROM "voter_participations"
-        WHERE "election_id" = ${electionId} AND "scoped_token_hash" = ${scopedTokenHash}
-      `;
-      const hasVoted = Number(rows[0]?.count ?? 0) > 0;
-      this.logger.log(
-        `Consulta de participación para elector (${scopedTokenHash.substring(0, 10)}...): ${hasVoted ? 'YA VOTO' : 'NO HA VOTADO'}`,
-      );
-      return hasVoted;
-    } catch (err) {
-      this.logger.error(
-        `Error consultando hasVoterVoted: ${(err as Error).message}`,
-      );
-      return false;
-    }
   }
 
   async isVoterRegistered(electionId: string, scopedTokenHash: string): Promise<boolean> {

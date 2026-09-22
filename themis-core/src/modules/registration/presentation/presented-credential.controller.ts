@@ -1,4 +1,5 @@
-import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PresentCredentialUseCase } from '../application/present-credential.usecase';
 import { PresentCredentialDto } from './dto/present-credential.dto';
@@ -8,6 +9,7 @@ import { PresentedCredentialResponseDto } from './dto/presented-credential-respo
 // la firma valida es la unica prueba de habilitacion, y probarla de forma
 // anonima es justamente el punto (ver README del modulo, "Presentacion
 // anonima de la credencial"). Mismo espiritu que el futuro endpoint de voto.
+@UseGuards(ThrottlerGuard)
 @ApiTags('registration')
 @Controller('elections/:electionId/credentials')
 export class PresentedCredentialController {

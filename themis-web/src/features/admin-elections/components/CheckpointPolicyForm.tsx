@@ -21,7 +21,7 @@ import { useConfigureCheckpointPolicy } from '../hooks/use-configure-checkpoint-
 function mutationErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 400) {
-      return 'Revisa el intervalo (5 a 1440 minutos) y el umbral (1 a 10000).';
+      return 'Revisa el intervalo (1 a 1440 minutos) y el umbral (1 a 10000).';
     }
     if (error.status === 409) {
       return 'La política queda fija una vez abierto el registro.';
@@ -77,12 +77,12 @@ export function CheckpointPolicyForm({ electionId, electionEstado }: CheckpointP
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <div className="space-y-2">
             <Label htmlFor="checkpointIntervalMinutes">
-              Intervalo de cierre de checkpoint (minutos, 5 a 1440)
+              Intervalo de cierre de checkpoint (minutos, 1 a 1440)
             </Label>
             <Input
               id="checkpointIntervalMinutes"
               type="number"
-              min={5}
+              min={1}
               max={1440}
               disabled={locked}
               aria-invalid={!!form.formState.errors.checkpointIntervalMinutes}

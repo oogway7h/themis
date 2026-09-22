@@ -1,18 +1,14 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { Contract } from 'ethers';
+import { Inject, Injectable } from '@nestjs/common';
 import { ELECTION_REPOSITORY, ElectionRepository } from '../../elections/domain/election.repository';
 import { ElectionNotFoundError } from '../../elections/application/election.errors';
 import {
   PRESENTED_CREDENTIAL_REPOSITORY,
   PresentedCredentialRepository,
 } from '../domain/presented-credential.repository';
-import { PresentedCredential, PresentedCredentialStatus } from '../domain/presented-credential.entity';
+import { PresentedCredential } from '../domain/presented-credential.entity';
 import { RegistrationSigningService } from '../infrastructure/registration-signing.service';
 import { assertElectionNotClosed } from './registration-validation';
 import { CredentialAlreadyPresentedError, CredentialInvalidSignatureError } from './registration.errors';
-import { APP_CONFIG } from '../../../config/configuration';
-import type { AppConfig } from '../../../config/configuration';
-import { BlockchainService } from '../../../shared/blockchain/blockchain.service';
 
 export interface PresentCredentialInput {
   preparedMessage: string;
@@ -31,18 +27,27 @@ function extractCommitment(preparedMessageBase64: string): string {
   return preparedMessage.subarray(RANDOMIZED_PREFIX_BYTES).toString('utf8');
 }
 
+/**
+ * Segundo paso de CU-05: recibe la credencial certificada de forma anonima y
+ * la deja en cola (`PENDING`) para el proximo checkpoint.
+ *
+ * **No inserta nada on-chain.** Antes lo hacia: llamaba `addMembers` con la
+ * wallet del backend y marcaba la credencial `INSERTED` en el mismo request.
+ * Eso saltaba el checkpoint y la aprobacion 3-de-5, asi que quien controlara
+ * el backend podia agregar votantes al padron sin que ninguna autoridad lo
+ * viera. Ademas rompia el flujo de lotes: `assertNoPartialOverlap` aborta el
+ * lote si alguno de sus commitments ya esta on-chain, y marcar `INSERTED`
+ * salteando `BATCHED` hacia que `findPendingByElection` no los viera nunca.
+ * El unico camino al arbol es CU-07/08/09 (`src/modules/checkpoints/`).
+ */
 @Injectable()
 export class PresentCredentialUseCase {
-  private readonly logger = new Logger(PresentCredentialUseCase.name);
-
   constructor(
     @Inject(ELECTION_REPOSITORY)
     private readonly electionRepository: ElectionRepository,
     @Inject(PRESENTED_CREDENTIAL_REPOSITORY)
     private readonly presentedCredentialRepository: PresentedCredentialRepository,
     private readonly registrationSigning: RegistrationSigningService,
-    @Optional() private readonly blockchain?: BlockchainService,
-    @Optional() @Inject(APP_CONFIG) private readonly config?: AppConfig,
   ) {}
 
   async execute(
@@ -69,61 +74,8 @@ export class PresentCredentialUseCase {
       electionId,
       commitment,
     );
-    if (existing && existing.status === 'INSERTED') {
-      return existing;
-    }
-
-    let status: PresentedCredentialStatus = 'PENDING';
-    if (
-      election.onChainGroupId &&
-      this.config?.chain?.semaphoreRegistryAddress &&
-      this.blockchain
-    ) {
-      try {
-        const wallet = this.blockchain.getWallet();
-        const registry = new Contract(
-          this.config.chain.semaphoreRegistryAddress,
-          [
-            'function addMembers(uint256 groupId, uint256[] identityCommitments)',
-            'function getMerkleTreeRoot(uint256 groupId) view returns (uint256)',
-            'function hasMember(uint256 groupId, uint256 identityCommitment) view returns (bool)',
-          ],
-          wallet,
-        );
-
-        const groupId = BigInt(election.onChainGroupId);
-        const commitmentBigInt = BigInt(commitment);
-
-        const alreadyMember = await registry.hasMember(groupId, commitmentBigInt);
-        if (!alreadyMember) {
-          const nonce = await this.blockchain
-            .getProvider()
-            .getTransactionCount(wallet.address, 'latest');
-          const tx = await registry.addMembers(groupId, [commitmentBigInt], {
-            nonce,
-          });
-          await tx.wait();
-        }
-
-        const newRoot = (await registry.getMerkleTreeRoot(groupId)) as bigint;
-        await this.electionRepository.setMerkleRoot(electionId, newRoot.toString());
-        status = 'INSERTED';
-      } catch (err) {
-        this.logger.warn(
-          `No se pudo auto-insertar commitment on-chain para eleccion ${electionId}: ${(err as Error).message}`,
-        );
-      }
-    }
-
     if (existing) {
-      if (status === 'INSERTED' && existing.status !== 'INSERTED') {
-        return this.presentedCredentialRepository.updateStatus(
-          electionId,
-          commitment,
-          'INSERTED',
-        );
-      }
-      return existing;
+      throw new CredentialAlreadyPresentedError();
     }
 
     try {
@@ -132,24 +84,11 @@ export class PresentCredentialUseCase {
         commitment,
         preparedMessage: input.preparedMessage,
         signature: input.signature,
-        status,
       });
     } catch {
-      const concurrentExisting =
-        await this.presentedCredentialRepository.findByElectionAndCommitment(
-          electionId,
-          commitment,
-        );
-      if (concurrentExisting) {
-        if (status === 'INSERTED' && concurrentExisting.status !== 'INSERTED') {
-          return this.presentedCredentialRepository.updateStatus(
-            electionId,
-            commitment,
-            'INSERTED',
-          );
-        }
-        return concurrentExisting;
-      }
+      // Carrera con otro request que presento el mismo commitment primero: el
+      // unique de (electionId, commitment) lo rechaza, y para el cliente es el
+      // mismo caso que el `existing` de arriba.
       throw new CredentialAlreadyPresentedError();
     }
   }

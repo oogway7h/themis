@@ -70,7 +70,22 @@ export class SemaphoreOnChainService implements SemaphoreOnChainPort {
     return this.registryInstance;
   }
 
+  /**
+   * `createGroup` y `addMembers` van en la MISMA seccion critica: son dos
+   * transacciones consecutivas de la misma cuenta relayer, y si otro envio se
+   * cuela entre ellas el nonce de la segunda ya no sirve.
+   */
   async insertBatch(electionId: string, commitments: string[]): Promise<InsertBatchResult> {
+    return this.blockchain.sendSerialized(
+      `insertBatch(election=${electionId}, n=${commitments.length})`,
+      () => this.insertBatchUnsafe(electionId, commitments),
+    );
+  }
+
+  private async insertBatchUnsafe(
+    electionId: string,
+    commitments: string[],
+  ): Promise<InsertBatchResult> {
     const election = await this.electionRepository.findById(electionId);
     if (!election) {
       throw new Error(`Eleccion ${electionId} no encontrada al insertar on-chain`);

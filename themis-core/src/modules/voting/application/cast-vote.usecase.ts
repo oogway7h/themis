@@ -1,8 +1,4 @@
-import { createHmac } from 'node:crypto';
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { APP_CONFIG } from '../../../config/configuration';
-import type { AppConfig } from '../../../config/configuration';
-import { VerifyMockAssertionUseCase } from '../../mock-sso/application/verify-mock-assertion.usecase';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   VOTING_REPOSITORY,
   type VotingRepository,
@@ -23,9 +19,19 @@ export interface CastVoteInput {
   electionId: string;
   optionId: string;
   proof: OnChainVoteProof;
-  assertion?: string;
 }
 
+/**
+ * CU-10: emite un voto. Sin ningun dato de identidad (regla 1 del CLAUDE.md
+ * raiz) -- la prueba zk-SNARK valida es la unica prueba de habilitacion,
+ * mismo espiritu que PresentCredentialUseCase de CU-05.
+ *
+ * Antes recibia la `assertion` del SSO para asentar la participacion del
+ * elector: eso ponia en la misma peticion quien vota y que vota, y persistia
+ * la marca de tiempo de ambos lados. Se quito junto con la tabla
+ * `voter_participations`; el doble voto lo sigue impidiendo el nullifier
+ * on-chain, que es la defensa real.
+ */
 @Injectable()
 export class CastVoteUseCase {
   private readonly logger = new Logger(CastVoteUseCase.name);
@@ -34,8 +40,6 @@ export class CastVoteUseCase {
     @Inject(VOTING_REPOSITORY)
     private readonly votingRepository: VotingRepository,
     private readonly onChainService: VotingOnChainService,
-    @Optional() private readonly verifyMockAssertion?: VerifyMockAssertionUseCase,
-    @Optional() @Inject(APP_CONFIG) private readonly config?: AppConfig,
   ) {}
 
   async execute(input: CastVoteInput): Promise<VoteReceiptEntity> {
@@ -50,8 +54,15 @@ export class CastVoteUseCase {
       throw new ElectionNotOpenForVotingError();
     }
 
-    const optionExists = election.opciones.some((o) => o.id === input.optionId);
-    if (!optionExists) {
+    // La opcion se deriva de `proof.message`, que es lo que el circuito firmo
+    // y lo que el contrato emite en ProofValidated -- no del `optionId` que
+    // manda el cliente, que no esta atado a la prueba y podia hacer que el
+    // recibo dijera una opcion distinta de la votada. Mismo criterio que
+    // SubmitVoteUseCase (CU-10 por relay).
+    const option = election.opciones.find(
+      (candidate) => candidate.onChainIndex === Number(input.proof.message),
+    );
+    if (!option) {
       throw new OptionNotFoundError();
     }
 
@@ -61,30 +72,8 @@ export class CastVoteUseCase {
       );
     }
 
-    this.logger.log(
-      `Emitiendo voto: electionId=${input.electionId}, optionId=${input.optionId}, assertion=${input.assertion ? 'SI' : 'NO'}`,
-    );
-
-    // Verificación de participación del elector si viene assertion
-    let scopedTokenHash: string | null = null;
-    if (input.assertion && this.verifyMockAssertion && this.config) {
-      const verification = this.verifyMockAssertion.execute({ assertion: input.assertion, ignoreExpiry: true });
-      if (verification.valid) {
-        scopedTokenHash = createHmac('sha256', this.config.ssoMock.secret)
-          .update(`${verification.sub}:${input.electionId}`)
-          .digest('hex');
-
-        const alreadyVoted = await this.votingRepository.hasVoterVoted(
-          input.electionId,
-          scopedTokenHash,
-        );
-        if (alreadyVoted) {
-          throw new DuplicateVoteError('Este elector ya ha emitido su voto en esta elección');
-        }
-      }
-    }
-
-    // Verificación rápida en base de datos para evitar gastar gas si el nullifier ya se vio
+    // Verificacion rapida en base de datos para no gastar gas si el nullifier
+    // ya se vio. El rechazo definitivo lo hace el contrato.
     const existingReceipt =
       await this.votingRepository.findVoteReceiptByNullifier(
         input.proof.nullifier,
@@ -93,25 +82,21 @@ export class CastVoteUseCase {
       throw new DuplicateVoteError();
     }
 
-    // Enviar transacción a blockchain vía Relayer (verificación on-chain de Semaphore)
     const onChainResult = await this.onChainService.castVote(
       election.onChainGroupId,
       input.proof,
     );
 
-    // Guardar el recibo anónimo en base de datos (desacoplado de la identidad)
+    // Recibo anonimo: no hay ninguna columna que lo conecte con el registro
+    // ni con la identidad real.
     const receipt = await this.votingRepository.saveVoteReceipt({
       electionId: input.electionId,
-      optionId: input.optionId,
+      optionId: option.id,
       nullifier: input.proof.nullifier,
       txHash: onChainResult.txHash,
     });
 
-    // Asentar en el padrón electoral que este elector ya votó (sin vincular a la opción ni nullifier)
-    if (scopedTokenHash) {
-      this.logger.log(`Asentando voto en padrón para hash ${scopedTokenHash.substring(0, 10)}...`);
-      await this.votingRepository.markVoterHasVoted(input.electionId, scopedTokenHash);
-    }
+    this.logger.log(`Voto emitido para election=${input.electionId}`);
 
     return receipt;
   }

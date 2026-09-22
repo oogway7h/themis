@@ -11,16 +11,13 @@ export class CheckVoterStatusDto {
   assertion!: string;
 }
 
+// Sin `hasVoted`/`votedAt`: informarlos exigia guardar quien voto y cuando,
+// y esa marca de tiempo permitia asociar al votante con su opcion. El cliente
+// sabe si ya voto por el recibo que guarda en el dispositivo.
 export class VoterStatusResponseDto {
   @ApiProperty({ description: 'ID de la elección' })
   electionId!: string;
 
   @ApiProperty({ description: 'Si el elector se encuentra registrado en el padrón para esta elección' })
   isRegistered!: boolean;
-
-  @ApiProperty({ description: 'Si el elector ya emitió su voto en esta elección' })
-  hasVoted!: boolean;
-
-  @ApiProperty({ description: 'Fecha y hora en que el elector emitió su voto, si aplica', nullable: true })
-  votedAt!: string | null;
 }

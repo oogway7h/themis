@@ -1,4 +1,5 @@
-import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SubmitRegistrationRequestUseCase } from '../application/submit-registration-request.usecase';
 import { SubmitRegistrationRequestDto } from './dto/submit-registration-request.dto';
@@ -8,6 +9,7 @@ import { RegistrationRequestResponseDto } from './dto/registration-request-respo
 // (cookie httpOnly), un mecanismo completamente distinto. Este endpoint
 // cumple la regla 1 del CLAUDE.md raiz ("registro autenticado") verificando
 // la assertion de mock-sso dentro del use case, no con sesion de plataforma.
+@UseGuards(ThrottlerGuard)
 @ApiTags('registration')
 @Controller('elections/:electionId/registration-requests')
 export class RegistrationController {

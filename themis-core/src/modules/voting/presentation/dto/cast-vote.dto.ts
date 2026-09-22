@@ -1,4 +1,4 @@
-import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -33,8 +33,16 @@ export class SemaphoreProofDto {
   points!: string[];
 }
 
+// Sin `assertion`: recibirla en la misma peticion que la opcion votada
+// permitia al servidor (y a cualquier log intermedio) ver juntos quien vota y
+// que vota, aunque no se persistiera el vinculo. La prueba zk-SNARK valida es
+// la unica prueba de habilitacion que necesita este endpoint.
 export class CastVoteDto {
-  @ApiProperty({ description: 'ID de la opción seleccionada', example: 'f87a3cb3-c159-4d69-b599-4d765fe659ba' })
+  @ApiProperty({
+    description:
+      'ID de la opcion seleccionada. Informativo: la opcion que se registra se deriva de proof.message',
+    example: 'f87a3cb3-c159-4d69-b599-4d765fe659ba',
+  })
   @IsString()
   @IsNotEmpty()
   optionId!: string;
@@ -43,12 +51,4 @@ export class CastVoteDto {
   @ValidateNested()
   @Type(() => SemaphoreProofDto)
   proof!: SemaphoreProofDto;
-
-  @ApiProperty({
-    description: 'Assertion Mock SSO para asentar voto en el padrón electoral sin vincular a la opción',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  assertion?: string;
 }

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SubmitVoteUseCase } from '../application/submit-vote.usecase';
 import { GetVotingContextUseCase } from '../application/get-voting-context.usecase';
@@ -11,6 +12,7 @@ import { TallyResponseDto } from './dto/tally-response.dto';
 // Sin auth de ningun tipo (regla 1 del CLAUDE.md raiz): la prueba zk-SNARK
 // valida es la unica prueba de habilitacion, mismo espiritu que
 // PresentedCredentialController (CU-05).
+@UseGuards(ThrottlerGuard)
 @ApiTags('voting')
 @Controller('elections/:electionId')
 export class VotesController {

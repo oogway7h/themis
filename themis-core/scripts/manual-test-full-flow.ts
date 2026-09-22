@@ -287,8 +287,8 @@ async function main() {
     await registerVoter(electionId, voterCodes[i], identity.commitment.toString());
   }
 
-  // Al abrirse, el intervalo del checkpoint empieza a contar (5 min). Se retrocede el ultimo
-  // cierre para que venza en el siguiente tick del cron en vez de esperar 5 minutos.
+  // Al abrirse, el intervalo del checkpoint empieza a contar. Se retrocede el ultimo
+  // cierre para que venza en el siguiente tick del cron en vez de esperar el intervalo.
   await prisma.election.update({
     where: { id: electionId },
     data: { lastCheckpointClosedAt: new Date(Date.now() - 10 * 60_000) },
@@ -380,7 +380,7 @@ async function main() {
       BigInt(option.onChainIndex),
       BigInt(onChainGroupId),
     );
-    const voteResponse = await postJson(`/elections/${electionId}/votes`, {
+    const voteResponse = await postJson(`/elections/${electionId}/votes/relay-submit`, {
       merkleTreeDepth: proof.merkleTreeDepth,
       merkleTreeRoot: proof.merkleTreeRoot,
       nullifier: proof.nullifier,
@@ -389,7 +389,10 @@ async function main() {
       points: proof.points,
     });
     if (voteResponse.status !== 201) {
-      throw new Error(`POST /votes fallo para el votante ${i + 1}: ${voteResponse.status}`);
+      throw new Error(
+        `POST /votes/relay-submit fallo para el votante ${i + 1}: ` +
+          `${voteResponse.status} ${JSON.stringify(voteResponse.body)}`,
+      );
     }
     console.log(
       `  Voto ${i + 1}/${voterIdentities.length} emitido -> onChainTxHash=${voteResponse.body.onChainTxHash}`,
@@ -405,7 +408,7 @@ async function main() {
     BigInt(chosenOption[0].onChainIndex),
     BigInt(onChainGroupId),
   );
-  const duplicateResponse = await postJson(`/elections/${electionId}/votes`, {
+  const duplicateResponse = await postJson(`/elections/${electionId}/votes/relay-submit`, {
     merkleTreeDepth: duplicateProof.merkleTreeDepth,
     merkleTreeRoot: duplicateProof.merkleTreeRoot,
     nullifier: duplicateProof.nullifier,
@@ -458,11 +461,96 @@ async function main() {
   }
   console.log('OK: CU-14 calculo el snapshot final inmutable con el total correcto (CU-15 lo expone).');
 
+  console.log('\n=== FASE ANONIMATO: no se puede asociar un voto con su votante ===');
+  await verifyAnonymity(electionId, voterCodes, members);
+
   console.log(
     `\nEleccion de prueba: ${electionId} (no se borra automaticamente, queda en la BD).\n` +
       'Ciclo completo CU-01 a CU-15 (salvo CU-12/CU-13, IA, fuera de alcance) verificado end-to-end.',
   );
   await prisma.$disconnect();
+}
+
+/**
+ * Comprueba que los canales que permitian asociar un voto con su votante estan
+ * cerrados. Cada assert reproduce un ataque concreto que antes funcionaba.
+ */
+async function verifyAnonymity(
+  electionId: string,
+  voterCodes: string[],
+  members: string[],
+): Promise<void> {
+  // 1. La identidad ya no se deriva del `sub` del SSO. Antes la app usaba
+  //    `new Identity('themis:voter:<sub>')`, y como el backend tiene todos los
+  //    `sub` en mock_sso_users podia recalcular el commitment y el nullifier de
+  //    cada persona. Esto reproduce ese calculo exacto y exige que ningun
+  //    commitment derivado este en el arbol.
+  const users = await prisma.mockSsoUser.findMany({
+    where: { codigoInstitucional: { in: voterCodes } },
+    select: { id: true, codigoInstitucional: true },
+  });
+  if (users.length !== voterCodes.length) {
+    throw new Error('No se encontraron todos los votantes de prueba en mock_sso_users');
+  }
+  for (const user of users) {
+    const derived = new Identity(`themis:voter:${user.id}`).commitment.toString();
+    if (members.includes(derived)) {
+      throw new Error(
+        `El commitment de ${user.codigoInstitucional} es derivable de su sub: ` +
+          'la identidad volvio a ser determinista y el voto se puede asociar al votante',
+      );
+    }
+  }
+  console.log(`  OK: ningun commitment del arbol es derivable del sub (${users.length} votantes)`);
+
+  // 2. La tabla que guardaba (scoped_token_hash, voted_at) no existe.
+  const [{ existe }] = await prisma.$queryRaw<{ existe: boolean }[]>`
+    SELECT to_regclass('voter_participations') IS NOT NULL AS existe
+  `;
+  if (existe) {
+    throw new Error('La tabla voter_participations existe: permite cruzar votante y voto por hora');
+  }
+  console.log('  OK: la tabla voter_participations no existe');
+
+  // 3. No hay ninguna columna por la que unir el registro (que lleva el
+  //    scoped_token_hash) con el voto. Detecta cualquier columna nueva que
+  //    rompa la regla 2 en el futuro.
+  const columnsOf = async (table: string): Promise<string[]> => {
+    const rows = await prisma.$queryRaw<{ column_name: string }[]>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = ${table}
+    `;
+    return rows.map((row) => row.column_name);
+  };
+  const registration = await columnsOf('registration_requests');
+  for (const table of ['vote_receipts', 'vote_submissions']) {
+    const shared = (await columnsOf(table)).filter(
+      (column) => registration.includes(column) && column !== 'id' && column !== 'status',
+    );
+    if (shared.length !== 1 || shared[0] !== 'election_id') {
+      throw new Error(
+        `${table} comparte columnas con registration_requests ademas de election_id: ` +
+          shared.join(', '),
+      );
+    }
+  }
+  console.log('  OK: registro y voto no comparten ninguna columna mas que election_id');
+
+  // 4. k-anonimato del lote: con un solo miembro, la hora del registro alcanza
+  //    para saber de quien es ese commitment, sin importar lo demas.
+  const batches = await prisma.registrationBatch.findMany({
+    where: { electionId, status: 'INSERTED' },
+    select: { id: true, credentialCount: true },
+  });
+  const solitarios = batches.filter((batch) => batch.credentialCount < 2);
+  if (solitarios.length > 0) {
+    console.warn(
+      `  AVISO: ${solitarios.length} lote(s) insertados con una sola credencial. ` +
+        'Un lote de 1 no da anonimato: subir el intervalo de checkpoint o el delay de presentacion.',
+    );
+  } else {
+    console.log(`  OK: los ${batches.length} lote(s) insertados agrupan 2+ credenciales`);
+  }
 }
 
 main().catch((error) => {

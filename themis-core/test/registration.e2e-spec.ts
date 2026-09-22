@@ -288,4 +288,64 @@ describe('registration (e2e)', () => {
       expect(response.status).toBe(201);
     });
   });
+
+  describe('ventana de registro', () => {
+    // Registrarse con la votacion ya abierta permitiria sumar votantes al
+    // padron cuando el conteo en vivo (CU-11) ya muestra parciales.
+    it('responde 409 REGISTRATION_WINDOW_CLOSED si la eleccion esta en VOTACION_ABIERTA', async () => {
+      const assertion = await login();
+      const { blindedMessage } = await blindCommitment('commitment-ventana-1');
+
+      await prisma.election.update({
+        where: { id: electionId },
+        data: { estado: 'VOTACION_ABIERTA' },
+      });
+
+      try {
+        const response = await request(app.getHttpServer())
+          .post(`/api/v1/elections/${electionId}/registration-requests`)
+          .send({ assertion, blindedMessage });
+
+        expect(response.status).toBe(409);
+        expect(response.body.code).toBe('REGISTRATION_WINDOW_CLOSED');
+      } finally {
+        await prisma.election.update({
+          where: { id: electionId },
+          data: { estado: 'REGISTRO_ABIERTO' },
+        });
+      }
+    });
+  });
+
+  describe('separacion identidad / credencial (regla 2)', () => {
+    // Convierte la regla 2 en un assert automatico: si alguien agrega una
+    // columna que permita unir el registro (que lleva scoped_token_hash) con
+    // la credencial o el voto, este test se pone rojo.
+    it('las tablas de registro y de voto no comparten ninguna columna mas que election_id', async () => {
+      const columnsOf = async (table: string): Promise<string[]> => {
+        const rows = await prisma.$queryRaw<{ column_name: string }[]>`
+          SELECT column_name FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = ${table}
+        `;
+        return rows.map((row) => row.column_name);
+      };
+
+      const registration = await columnsOf('registration_requests');
+      expect(registration).toContain('scoped_token_hash');
+
+      for (const table of ['presented_credentials', 'vote_receipts', 'vote_submissions']) {
+        const shared = (await columnsOf(table)).filter(
+          (column) => registration.includes(column) && column !== 'id' && column !== 'status',
+        );
+        expect(shared.sort()).toEqual(['election_id']);
+      }
+    });
+
+    it('la tabla voter_participations no existe', async () => {
+      const rows = await prisma.$queryRaw<{ existe: boolean }[]>`
+        SELECT to_regclass('voter_participations') IS NOT NULL AS existe
+      `;
+      expect(rows[0].existe).toBe(false);
+    });
+  });
 });

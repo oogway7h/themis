@@ -25,7 +25,10 @@ export const envSchema = z.object({
   VOTING_CONTRACT_ADDRESS: z.string().default(''),
 
   SSO_MOCK_SECRET: z.string().min(32),
-  SSO_MOCK_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  // 1 hora: el flujo del votante (login -> registro -> delay de presentacion
+  // -> voto) no cabe en 5 minutos, y ese TTL corto era la razon por la que la
+  // verificacion de expiracion se salteaba del todo.
+  SSO_MOCK_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
 
   // JWK (JSON) de la clave RSA-PSS de firma ciega de registro (CU-05).
   // Generar con: pnpm registration:generate-signing-key

@@ -26,6 +26,13 @@ export class BlockchainService {
   private readonly provider: JsonRpcProvider;
   private readonly wallet: Wallet;
 
+  /// Cola de una sola via para todo lo que firma con la wallet del relayer.
+  /// Hay una sola cuenta, asi que dos envios concurrentes leen el mismo nonce
+  /// y el segundo se cae con NONCE_EXPIRED. Antes se mitigaba leyendo el nonce
+  /// a mano con getTransactionCount('latest') en cada llamador, lo que no
+  /// alcanza (dos lectores concurrentes obtienen el mismo valor).
+  private queue: Promise<unknown> = Promise.resolve();
+
   constructor(@Inject(APP_CONFIG) private readonly config: AppConfig) {
     // cacheTimeout -1: ethers v6 cachea 250ms las lecturas RPC identicas, y con un nodo de
     // minado instantaneo (Hardhat) la 2da transaccion consecutiva del relayer reusa el nonce
@@ -52,6 +59,29 @@ export class BlockchainService {
 
   getProvider(): JsonRpcProvider {
     return this.provider;
+  }
+
+  /**
+   * Serializa un envio on-chain contra la wallet del relayer: encadena sobre
+   * los envios previos, asi el nonce manager de ethers nunca ve dos
+   * transacciones en vuelo de la misma cuenta.
+   *
+   * Todo lo que mande una transaccion (no las lecturas) tiene que pasar por
+   * aca. `label` solo va al log, para poder seguir el orden real de envio.
+   */
+  async sendSerialized<T>(label: string, fn: () => Promise<T>): Promise<T> {
+    // El `catch` mantiene la cadena viva: si un envio falla, los siguientes
+    // igual tienen que poder correr.
+    const run = this.queue.then(
+      () => fn(),
+      () => fn(),
+    );
+    // Se encadena el resultado ya neutralizado para que un rechazo no quede
+    // sin manejar en la cola misma.
+    this.queue = run.catch(() => undefined);
+
+    this.logger.debug(`Envio on-chain encolado: ${label}`);
+    return run;
   }
 
   getRegistry(): Contract | null {

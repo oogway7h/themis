@@ -75,7 +75,10 @@ export class SemaphoreVoteOnChainService implements VoteOnChainPort {
     };
 
     try {
-      const tx = await this.registry.validateProof(BigInt(groupId), tuple);
+      const tx = await this.blockchain.sendSerialized(
+        `validateProof(group=${groupId})`,
+        () => this.registry.validateProof(BigInt(groupId), tuple),
+      );
       const receipt = (await tx.wait()) as TransactionReceipt;
       if (!receipt || receipt.status !== 1) {
         throw new Error(`Transaccion on-chain revertida (tx=${tx.hash})`);

@@ -6,70 +6,11 @@ import {
   DuplicateVoteError,
 } from '../domain/voting.errors';
 import type {
-  VotingRepository,
-  PublicElectionDetail,
-  CreateVoteReceiptData,
-} from '../domain/voting.repository';
-import type { VoteReceiptEntity } from '../domain/vote-receipt.entity';
-import type {
   VotingOnChainService,
   OnChainVoteProof,
   CastVoteOnChainResult,
 } from '../infrastructure/voting-onchain.service';
-
-class MockVotingRepository implements VotingRepository {
-  public elections: PublicElectionDetail[] = [];
-  public receipts: VoteReceiptEntity[] = [];
-  public commitments: Record<string, string[]> = {};
-
-  async findPublicActiveElections(): Promise<PublicElectionDetail[]> {
-    return this.elections.filter((e) => e.estado === 'VOTACION_ABIERTA');
-  }
-
-  async findPublicElectionById(id: string): Promise<PublicElectionDetail | null> {
-    return this.elections.find((e) => e.id === id) ?? null;
-  }
-
-  async findVoteReceiptByNullifier(
-    nullifier: string,
-  ): Promise<VoteReceiptEntity | null> {
-    return this.receipts.find((r) => r.nullifier === nullifier) ?? null;
-  }
-
-  async saveVoteReceipt(data: CreateVoteReceiptData): Promise<VoteReceiptEntity> {
-    const receipt: VoteReceiptEntity = {
-      id: 'receipt-123',
-      electionId: data.electionId,
-      optionId: data.optionId,
-      nullifier: data.nullifier,
-      txHash: data.txHash,
-      createdAt: new Date(),
-    };
-    this.receipts.push(receipt);
-    return receipt;
-  }
-
-  async findInsertedCommitmentsByElectionId(
-    electionId: string,
-  ): Promise<string[]> {
-    return this.commitments[electionId] ?? [];
-  }
-
-  public votedTokens: Set<string> = new Set();
-  public registeredTokens: Set<string> = new Set();
-
-  async markVoterHasVoted(electionId: string, scopedTokenHash: string): Promise<void> {
-    this.votedTokens.add(`${electionId}:${scopedTokenHash}`);
-  }
-
-  async hasVoterVoted(electionId: string, scopedTokenHash: string): Promise<boolean> {
-    return this.votedTokens.has(`${electionId}:${scopedTokenHash}`);
-  }
-
-  async isVoterRegistered(electionId: string, scopedTokenHash: string): Promise<boolean> {
-    return this.registeredTokens.has(`${electionId}:${scopedTokenHash}`);
-  }
-}
+import { InMemoryVotingRepository } from '../../../../test/doubles/in-memory-voting.repository';
 
 class MockVotingOnChainService implements Partial<VotingOnChainService> {
   async castVote(
@@ -84,7 +25,7 @@ class MockVotingOnChainService implements Partial<VotingOnChainService> {
 }
 
 describe('CastVoteUseCase', () => {
-  let repository: MockVotingRepository;
+  let repository: InMemoryVotingRepository;
   let onChainService: MockVotingOnChainService;
   let useCase: CastVoteUseCase;
 
@@ -98,7 +39,7 @@ describe('CastVoteUseCase', () => {
   };
 
   beforeEach(() => {
-    repository = new MockVotingRepository();
+    repository = new InMemoryVotingRepository();
     onChainService = new MockVotingOnChainService();
     useCase = new CastVoteUseCase(
       repository,
@@ -186,10 +127,38 @@ describe('CastVoteUseCase', () => {
     await expect(
       useCase.execute({
         electionId: 'election-1',
-        optionId: 'non-existent-option',
-        proof: sampleProof,
+        optionId: 'opt-1',
+        proof: { ...sampleProof, message: '99' },
       }),
     ).rejects.toThrow(OptionNotFoundError);
+  });
+
+  // La opcion que se registra sale de proof.message, que es lo que el circuito
+  // firmo y lo que el contrato emite, no del optionId que manda el cliente: ese
+  // no esta atado a la prueba y permitia que el recibo dijera otra opcion.
+  it('registra la opción derivada de proof.message, ignorando el optionId del cuerpo', async () => {
+    repository.elections.push({
+      id: 'election-1',
+      nombre: 'Elección Rectorado',
+      descripcion: null,
+      estado: 'VOTACION_ABIERTA',
+      votacionInicio: new Date(),
+      votacionFin: new Date(Date.now() + 86400000),
+      onChainGroupId: '100',
+      merkleRoot: null,
+      opciones: [
+        { id: 'opt-a', nombre: 'A', descripcion: null, onChainIndex: 0 },
+        { id: 'opt-b', nombre: 'B', descripcion: null, onChainIndex: 1 },
+      ],
+    });
+
+    const receipt = await useCase.execute({
+      electionId: 'election-1',
+      optionId: 'opt-a',
+      proof: { ...sampleProof, message: '1' },
+    });
+
+    expect(receipt.optionId).toBe('opt-b');
   });
 
   it('debe fallar con DuplicateVoteError si el nullifier ya fue registrado', async () => {

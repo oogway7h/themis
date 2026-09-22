@@ -141,6 +141,21 @@ describe('PresentCredentialUseCase', () => {
     ).rejects.toBeInstanceOf(CredentialInvalidSignatureError);
   });
 
+  // La credencial queda SIEMPRE en PENDING, incluso con el grupo on-chain ya
+  // creado: antes este caso disparaba un addMembers directo con la wallet del
+  // backend y marcaba INSERTED, salteando el lote y la aprobacion 3-de-5.
+  it('deja la credencial en PENDING aunque la eleccion ya tenga grupo on-chain', async () => {
+    const election = await createElection();
+    await electionRepository.setOnChainGroup(election.id, '7');
+    const { preparedMessage, signature } = await buildValidCredential('commitment-con-grupo');
+
+    const result = await useCase.execute(election.id, { preparedMessage, signature });
+
+    expect(result.status).toBe('PENDING');
+    // Sin batchId: solo el checkpoint (CU-07) puede asignarlo.
+    expect(result.batchId).toBeNull();
+  });
+
   it('rechaza presentar el mismo commitment dos veces', async () => {
     const election = await createElection();
     const credentialA = await buildValidCredential('commitment-repetido');
