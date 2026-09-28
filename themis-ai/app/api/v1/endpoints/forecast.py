@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import require_service_token
 from app.schemas.forecast import ForecastRequest, ForecastResponse, SeriesPoint, CandidateProjection, SimulateRequest
 from app.services.forecast_service import ForecastService
-from app.db import get_db_connection, get_active_election, calculate_cap, get_registration_series, get_live_tally, inject_simulation_data
+from app.db import get_db_connection, get_active_election, get_election_by_id, calculate_cap, get_registration_series, get_live_tally, inject_simulation_data
 
 router = APIRouter()
 service = ForecastService()
@@ -51,10 +51,16 @@ async def create_forecast(payload: ForecastRequest) -> ForecastResponse:
     conn = None
     try:
         conn = await get_db_connection()
-        # 1. Encontrar la eleccion activa
-        election = await get_active_election(conn)
-        if not election:
-            raise HTTPException(status_code=404, detail="No hay ninguna eleccion configurada en la base de datos")
+        
+        # 1. Encontrar la eleccion
+        if payload.election_id and payload.election_id != "auto":
+            election = await get_election_by_id(conn, payload.election_id)
+            if not election:
+                raise HTTPException(status_code=404, detail="La elección especificada no existe")
+        else:
+            election = await get_active_election(conn)
+            if not election:
+                raise HTTPException(status_code=404, detail="No hay ninguna eleccion configurada en la base de datos")
             
         election_id = election["id"]
         

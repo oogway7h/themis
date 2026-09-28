@@ -9,6 +9,17 @@ async def get_db_connection() -> asyncpg.Connection:
         raise ValueError("DATABASE_URL no esta configurada en .env")
     return await asyncpg.connect(database_url, timeout=3.0)
 
+async def get_election_by_id(conn: asyncpg.Connection, election_id: str) -> Optional[Dict[str, Any]]:
+    query = """
+        SELECT id, elegibilidad_facultad, elegibilidad_tipo_usuario, elegibilidad_estado_academico, votacion_inicio
+        FROM elections
+        WHERE id = $1
+    """
+    row = await conn.fetchrow(query, election_id)
+    if row:
+        return dict(row)
+    return None
+
 async def get_active_election(conn: asyncpg.Connection) -> Optional[Dict[str, Any]]:
     query = """
         SELECT id, elegibilidad_facultad, elegibilidad_tipo_usuario, elegibilidad_estado_academico, votacion_inicio
