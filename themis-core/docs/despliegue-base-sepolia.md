@@ -63,7 +63,7 @@ Sepolia: hay que recrear la elección (por ejemplo, con `scripts/demo-eleccion-f
 ## Sincronización de eventos
 
 `SyncVoteEventsUseCase` arranca en `CHAIN_START_BLOCK` (no en 0: `eth_getLogs` sobre millones de bloques lo
-rechaza cualquier RPC) y avanza de a 2000 bloques por pasada del cron (una por minuto).
+rechaza cualquier RPC) y avanza de a 1000 bloques por pasada del cron (una por minuto).
 
 ## Qué mirar para demostrar un voto
 

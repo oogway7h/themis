@@ -16,9 +16,10 @@ import {
 } from '../domain/chain-sync-state.repository';
 import { VOTE_ONCHAIN_PORT, VoteOnChainPort } from '../domain/vote-onchain.port';
 
-// ponytail: rango fijo, cabe en el limite de eth_getLogs de los RPC publicos.
+// ponytail: rango fijo, cabe en el limite de eth_getLogs de los RPC publicos
+// (sepolia.base.org rechaza 2000; 1000 pasa, medido el 2026-09-30).
 // Hacerlo configurable si el proveedor permite rangos mas grandes.
-export const SYNC_BLOCK_RANGE = 2000;
+export const SYNC_BLOCK_RANGE = 1000;
 
 interface PrismaKnownRequestErrorLike {
   code?: string;

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Contract, type TransactionReceipt } from 'ethers';
+import { Contract, Interface, type TransactionReceipt } from 'ethers';
 import { APP_CONFIG } from '../../../config/configuration';
 import type { AppConfig } from '../../../config/configuration';
 import { BlockchainService } from '../../../shared/blockchain/blockchain.service';
@@ -24,7 +24,30 @@ const SEMAPHORE_REGISTRY_ABI = [
   'function getMerkleTreeRoot(uint256 groupId) view returns (uint256)',
   'function hasMember(uint256 groupId, uint256 identityCommitment) view returns (bool)',
   'event GroupCreated(uint256 indexed groupId)',
+  'event MembersAdded(uint256 indexed groupId, uint256 startIndex, uint256[] identityCommitments, uint256 merkleTreeRoot)',
 ];
+
+/**
+ * Raiz nueva del arbol, sacada del evento MembersAdded del propio recibo de
+ * addMembers. No se relee con getMerkleTreeRoot: un RPC con balanceo (p. ej.
+ * sepolia.base.org) puede contestar desde un nodo que aun no vio el bloque y
+ * devolver la raiz anterior -- paso en la prueba en Base Sepolia, y la raiz
+ * final de la auditoria quedaba desfasada un lote.
+ */
+export function newRootFromReceipt(receipt: TransactionReceipt, groupId: bigint): bigint {
+  const iface = new Interface(SEMAPHORE_REGISTRY_ABI);
+  for (const log of receipt.logs) {
+    try {
+      const parsed = iface.parseLog(log);
+      if (parsed?.name === 'MembersAdded' && parsed.args.groupId === groupId) {
+        return parsed.args.merkleTreeRoot as bigint;
+      }
+    } catch {
+      // log de otro contrato/evento, se ignora
+    }
+  }
+  throw new Error(`No se encontro el evento MembersAdded del grupo ${groupId} en el recibo (tx=${receipt.hash})`);
+}
 
 // Cuanto tiempo sigue siendo valida una raiz anterior para verificar pruebas. Con 0, una
 // prueba hecha contra una raiz que ya no es la vigente falla en cuanto se inserta otro lote.
@@ -115,7 +138,7 @@ export class SemaphoreOnChainService implements SemaphoreOnChainPort {
       throw new Error(`Transaccion on-chain revertida (tx=${tx.hash})`);
     }
 
-    const newRoot = (await this.registry.getMerkleTreeRoot(groupId)) as bigint;
+    const newRoot = newRootFromReceipt(receipt, groupId);
 
     return {
       txHash: receipt.hash,

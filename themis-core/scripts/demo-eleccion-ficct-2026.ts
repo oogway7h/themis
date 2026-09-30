@@ -35,9 +35,10 @@ if (!process.env.SEMAPHORE_REGISTRY_ADDRESS) {
 
 const BASE_URL = 'http://localhost:3000/api/v1';
 const RUN_ID = Date.now();
-const REGISTRO_MINUTOS = 10;
-const VOTACION_MINUTOS = 10;
-const CHECKPOINT_INTERVALO_MINUTOS = 5;
+// Ventanas por defecto; para una demo corta: DEMO_REGISTRO_MIN=5 DEMO_VOTACION_MIN=5 DEMO_CHECKPOINT_MIN=2
+const REGISTRO_MINUTOS = Number(process.env.DEMO_REGISTRO_MIN ?? 10);
+const VOTACION_MINUTOS = Number(process.env.DEMO_VOTACION_MIN ?? 10);
+const CHECKPOINT_INTERVALO_MINUTOS = Number(process.env.DEMO_CHECKPOINT_MIN ?? 5);
 
 const prisma = new PrismaClient();
 
@@ -291,7 +292,7 @@ async function main() {
           BigInt(chosenOption[i].onChainIndex),
           BigInt(onChainGroupId),
         );
-        const voteResponse = await postJson(`/elections/${electionId}/votes`, {
+        const voteResponse = await postJson(`/elections/${electionId}/votes/relay-submit`, {
           merkleTreeDepth: proof.merkleTreeDepth,
           merkleTreeRoot: proof.merkleTreeRoot,
           nullifier: proof.nullifier,
