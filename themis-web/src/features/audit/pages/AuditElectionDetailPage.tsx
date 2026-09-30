@@ -1,4 +1,4 @@
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -22,6 +22,25 @@ export interface AuditElectionDetailPageProps {
 
 function truncateHash(hash: string): string {
   return hash.length <= 16 ? hash : `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
+// Link al explorador de bloques (BaseScan): es el testigo independiente de
+// que la tx existe. Sin explorador (Hardhat local) queda el hash plano.
+export function ExplorerLink({ base, path, hash }: { base: string | null | undefined; path: string; hash: string }) {
+  if (!base) {
+    return <span className="font-mono">{truncateHash(hash)}</span>;
+  }
+  return (
+    <a
+      href={`${base}/${path}/${hash}`}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1 font-mono text-brand-strong underline-offset-2 hover:underline"
+    >
+      {truncateHash(hash)}
+      <ExternalLink className="size-3" />
+    </a>
+  );
 }
 
 // CU-15: vista de auditoria de solo lectura. Combina el detalle publico de la
@@ -273,6 +292,66 @@ export function AuditElectionDetailPage({ electionId }: AuditElectionDetailPageP
         </div>
       ) : null}
 
+      {audit ? (
+        <Card className="px-6">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-foreground">Votos registrados en la blockchain</h2>
+              <p className="text-[12.5px] text-muted-foreground">
+                Cada fila es una transacción que emitió <code>ProofValidated</code> en el contrato. Abrí
+                el hash para verlo en el explorador, sin depender de este backend.
+              </p>
+            </div>
+            {audit.chain.registryAddress ? (
+              <div className="space-y-1 text-right text-[12.5px]">
+                <div>
+                  <span className="text-muted-foreground">Contrato: </span>
+                  <ExplorerLink base={audit.chain.explorerUrl} path="address" hash={audit.chain.registryAddress} />
+                </div>
+                <div className="text-muted-foreground">
+                  chainId {audit.chain.chainId}
+                  {audit.chain.groupId ? ` · grupo ${audit.chain.groupId}` : ''}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          {audit.votes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Todavía no hay votos.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Recibido</TableHead>
+                  <TableHead>Nullifier</TableHead>
+                  <TableHead>Opción</TableHead>
+                  <TableHead>Bloque</TableHead>
+                  <TableHead>Origen</TableHead>
+                  <TableHead>Tx on-chain</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {audit.votes.map((vote) => (
+                  <TableRow key={vote.nullifier}>
+                    <TableCell>{new Date(vote.submittedAt).toLocaleString('es-BO')}</TableCell>
+                    <TableCell className="font-mono text-muted-foreground">{truncateHash(vote.nullifier)}</TableCell>
+                    <TableCell>{vote.optionNombre}</TableCell>
+                    <TableCell className="font-mono">{vote.blockNumber !== null ? `#${vote.blockNumber}` : '—'}</TableCell>
+                    <TableCell>{vote.source === 'RELAY' ? 'Relay' : 'Sync on-chain'}</TableCell>
+                    <TableCell>
+                      {vote.onChainTxHash ? (
+                        <ExplorerLink base={audit.chain.explorerUrl} path="tx" hash={vote.onChainTxHash} />
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+      ) : null}
+
       <Card className="px-6">
         <h2 className="mb-4 text-base font-bold text-foreground">Historial de lotes de registro</h2>
         {batches.length === 0 ? (
@@ -299,8 +378,13 @@ export function AuditElectionDetailPage({ electionId }: AuditElectionDetailPageP
                   <TableCell>
                     <BatchStatusBadge status={batch.status} />
                   </TableCell>
-                  <TableCell className="font-mono text-muted-foreground">
-                    {batch.onChainTxHash ? truncateHash(batch.onChainTxHash) : '—'}
+                  <TableCell className="text-muted-foreground">
+                    {/* 'ya-insertado-previamente' no es un hash real (semaphore-onchain.service.ts) */}
+                    {batch.onChainTxHash?.startsWith('0x') ? (
+                      <ExplorerLink base={audit?.chain.explorerUrl} path="tx" hash={batch.onChainTxHash} />
+                    ) : (
+                      (batch.onChainTxHash ?? '—')
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -4,6 +4,8 @@ import {
   ElectionRepository,
 } from '../../elections/domain/election.repository';
 import { Election } from '../../elections/domain/election.entity';
+import { APP_CONFIG } from '../../../config/configuration';
+import type { AppConfig } from '../../../config/configuration';
 import {
   VOTE_SUBMISSION_REPOSITORY,
   VoteSubmissionRepository,
@@ -13,6 +15,10 @@ import {
   ChainSyncStateRepository,
 } from '../domain/chain-sync-state.repository';
 import { VOTE_ONCHAIN_PORT, VoteOnChainPort } from '../domain/vote-onchain.port';
+
+// ponytail: rango fijo, cabe en el limite de eth_getLogs de los RPC publicos.
+// Hacerlo configurable si el proveedor permite rangos mas grandes.
+export const SYNC_BLOCK_RANGE = 2000;
 
 interface PrismaKnownRequestErrorLike {
   code?: string;
@@ -46,6 +52,8 @@ export class SyncVoteEventsUseCase {
     private readonly chainSyncStateRepository: ChainSyncStateRepository,
     @Inject(VOTE_ONCHAIN_PORT)
     private readonly onChain: VoteOnChainPort,
+    @Inject(APP_CONFIG)
+    private readonly config: AppConfig,
   ) {}
 
   async execute(): Promise<void> {
@@ -70,17 +78,22 @@ export class SyncVoteEventsUseCase {
   private async syncElection(election: Election): Promise<void> {
     const groupId = election.onChainGroupId as string;
     const syncState = await this.chainSyncStateRepository.findByElection(election.id);
-    const lastSyncedBlock = syncState?.lastSyncedBlock ?? 0;
+    // En una red real no se puede pedir eth_getLogs desde el bloque 0: se
+    // arranca en el bloque de despliegue y se avanza de a un tramo por pasada
+    // (el cron corre cada minuto, un catch-up largo se completa en varias).
+    const lastSyncedBlock =
+      syncState?.lastSyncedBlock ?? Math.max(this.config.chain.startBlock - 1, 0);
     const currentBlock = await this.onChain.getCurrentBlockNumber();
 
     if (currentBlock <= lastSyncedBlock) {
       return;
     }
 
+    const toBlock = Math.min(currentBlock, lastSyncedBlock + SYNC_BLOCK_RANGE);
     const events = await this.onChain.fetchProofValidatedEvents(
       groupId,
       lastSyncedBlock + 1,
-      currentBlock,
+      toBlock,
     );
 
     for (const event of events) {
@@ -114,6 +127,6 @@ export class SyncVoteEventsUseCase {
       }
     }
 
-    await this.chainSyncStateRepository.upsert(election.id, currentBlock);
+    await this.chainSyncStateRepository.upsert(election.id, toBlock);
   }
 }

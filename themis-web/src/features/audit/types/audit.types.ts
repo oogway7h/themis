@@ -36,6 +36,23 @@ export interface VoteSubmissionCountsDto {
   chainSync: number;
 }
 
+export interface AuditVoteDto {
+  nullifier: string;
+  optionNombre: string;
+  source: 'RELAY' | 'CHAIN_SYNC';
+  onChainTxHash: string | null;
+  blockNumber: number | null;
+  submittedAt: string;
+}
+
+export interface AuditChainInfoDto {
+  chainId: number;
+  // null en Hardhat local: no hay explorador, se muestra el hash sin link.
+  explorerUrl: string | null;
+  registryAddress: string | null;
+  groupId: string | null;
+}
+
 export interface AuditResultDto {
   electionId: string;
   estado: string;
@@ -43,4 +60,6 @@ export interface AuditResultDto {
   liveTally: AuditTallyOptionDto[];
   chainSync: AuditChainSyncDto | null;
   voteSubmissionCounts: VoteSubmissionCountsDto;
+  votes: AuditVoteDto[];
+  chain: AuditChainInfoDto;
 }

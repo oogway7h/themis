@@ -1,5 +1,6 @@
 import { CreateElectionUseCase } from '../../elections/application/create-election.usecase';
-import { SyncVoteEventsUseCase } from './sync-vote-events.usecase';
+import { SYNC_BLOCK_RANGE, SyncVoteEventsUseCase } from './sync-vote-events.usecase';
+import type { AppConfig } from '../../../config/configuration';
 import { InMemoryElectionRepository } from '../../../../test/doubles/in-memory-election.repository';
 import { InMemoryVoteSubmissionRepository } from '../../../../test/doubles/in-memory-vote-submission.repository';
 import { InMemoryChainSyncStateRepository } from '../../../../test/doubles/in-memory-chain-sync-state.repository';
@@ -11,18 +12,25 @@ describe('SyncVoteEventsUseCase', () => {
   let chainSyncStateRepository: InMemoryChainSyncStateRepository;
   let onChain: FakeVoteOnChainService;
   let useCase: SyncVoteEventsUseCase;
+  let startBlock: number;
+
+  function buildUseCase() {
+    return new SyncVoteEventsUseCase(
+      electionRepository,
+      voteSubmissionRepository,
+      chainSyncStateRepository,
+      onChain,
+      { chain: { startBlock } } as AppConfig,
+    );
+  }
 
   beforeEach(() => {
     electionRepository = new InMemoryElectionRepository();
     voteSubmissionRepository = new InMemoryVoteSubmissionRepository();
     chainSyncStateRepository = new InMemoryChainSyncStateRepository();
     onChain = new FakeVoteOnChainService();
-    useCase = new SyncVoteEventsUseCase(
-      electionRepository,
-      voteSubmissionRepository,
-      chainSyncStateRepository,
-      onChain,
-    );
+    startBlock = 0;
+    useCase = buildUseCase();
   });
 
   async function createOpenElection() {
@@ -148,5 +156,24 @@ describe('SyncVoteEventsUseCase', () => {
     expect(voteSubmissionRepository.all()).toHaveLength(0);
     const syncState = await chainSyncStateRepository.findByElection(election.id);
     expect(syncState?.lastSyncedBlock).toBe(50);
+  });
+
+  it('arranca en CHAIN_START_BLOCK y avanza de a un tramo por pasada', async () => {
+    const election = await createOpenElection();
+    startBlock = 1_000_000;
+    useCase = buildUseCase();
+    onChain.currentBlock = startBlock + SYNC_BLOCK_RANGE + 500;
+
+    await useCase.execute();
+    expect(onChain.lastRange).toEqual([startBlock, startBlock + SYNC_BLOCK_RANGE - 1]);
+    expect((await chainSyncStateRepository.findByElection(election.id))?.lastSyncedBlock).toBe(
+      startBlock + SYNC_BLOCK_RANGE - 1,
+    );
+
+    await useCase.execute();
+    expect(onChain.lastRange).toEqual([startBlock + SYNC_BLOCK_RANGE, onChain.currentBlock]);
+    expect((await chainSyncStateRepository.findByElection(election.id))?.lastSyncedBlock).toBe(
+      onChain.currentBlock,
+    );
   });
 });

@@ -26,6 +26,7 @@
     "chain:compile": "hardhat compile",
     "chain:deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "chain:deploy:semaphore:local": "hardhat run scripts/deploy-semaphore.ts --network localhost",
+    "chain:deploy:semaphore:base-sepolia": "hardhat run scripts/deploy-semaphore.ts --network baseSepolia",
     "registration:generate-signing-key": "ts-node scripts/generate-registration-signing-key.ts",
     "test:manual-flow": "ts-node scripts/manual-test-full-flow.ts"
   },
@@ -58,6 +59,7 @@
     "@nestjs/schematics": "12.0.1",
     "@nestjs/testing": "^12.0.1",
     "@nomicfoundation/hardhat-ethers": "3.1.3",
+    "@nomicfoundation/hardhat-verify": "^2.1.3",
     "@semaphore-protocol/group": "4.14.3",
     "@semaphore-protocol/hardhat": "4.14.3",
     "@semaphore-protocol/identity": "^4.14.3",

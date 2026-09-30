@@ -18,6 +18,9 @@ import {
   ElectionResultRepository,
 } from '../domain/election-result.repository';
 import { GetLiveTallyUseCase, TallyOption } from './get-live-tally.usecase';
+import { APP_CONFIG } from '../../../config/configuration';
+import type { AppConfig } from '../../../config/configuration';
+import type { VoteSubmissionSource } from '../domain/vote-submission.entity';
 
 export interface AuditFinalResult {
   totalVotes: number;
@@ -31,6 +34,23 @@ export interface AuditChainSync {
   updatedAt: Date;
 }
 
+export interface AuditVote {
+  nullifier: string;
+  optionNombre: string;
+  source: VoteSubmissionSource;
+  onChainTxHash: string | null;
+  blockNumber: number | null;
+  submittedAt: Date;
+}
+
+/** Datos publicos para que el auditor verifique en el explorador de bloques. */
+export interface AuditChainInfo {
+  chainId: number;
+  explorerUrl: string | null;
+  registryAddress: string | null;
+  groupId: string | null;
+}
+
 export interface AuditResult {
   electionId: string;
   estado: string;
@@ -38,6 +58,8 @@ export interface AuditResult {
   liveTally: TallyOption[];
   chainSync: AuditChainSync | null;
   voteSubmissionCounts: VoteSubmissionSourceCounts;
+  votes: AuditVote[];
+  chain: AuditChainInfo;
 }
 
 /**
@@ -58,6 +80,8 @@ export class GetAuditResultUseCase {
     @Inject(ELECTION_RESULT_REPOSITORY)
     private readonly electionResultRepository: ElectionResultRepository,
     private readonly getLiveTally: GetLiveTallyUseCase,
+    @Inject(APP_CONFIG)
+    private readonly config: AppConfig,
   ) {}
 
   async execute(electionId: string): Promise<AuditResult> {
@@ -66,12 +90,14 @@ export class GetAuditResultUseCase {
       throw new ElectionNotFoundError();
     }
 
-    const [result, tally, chainSync, voteSubmissionCounts] = await Promise.all([
+    const [result, tally, chainSync, voteSubmissionCounts, votes] = await Promise.all([
       this.electionResultRepository.findByElection(electionId),
       this.getLiveTally.execute(electionId),
       this.chainSyncStateRepository.findByElection(electionId),
       this.voteSubmissionRepository.countBySource(electionId),
+      this.voteSubmissionRepository.listByElection(electionId),
     ]);
+    const optionNames = new Map(election.opciones.map((option) => [option.id, option.nombre]));
 
     return {
       electionId: election.id,
@@ -89,6 +115,22 @@ export class GetAuditResultUseCase {
         ? { lastSyncedBlock: chainSync.lastSyncedBlock, updatedAt: chainSync.updatedAt }
         : null,
       voteSubmissionCounts,
+      // Todo esto ya es publico on-chain (evento ProofValidated): no agrega
+      // nada que permita ligar identidad con voto (regla 2).
+      votes: votes.map((vote) => ({
+        nullifier: vote.nullifier,
+        optionNombre: optionNames.get(vote.optionId) ?? vote.optionId,
+        source: vote.source,
+        onChainTxHash: vote.onChainTxHash,
+        blockNumber: vote.blockNumber,
+        submittedAt: vote.submittedAt,
+      })),
+      chain: {
+        chainId: this.config.chain.chainId,
+        explorerUrl: this.config.chain.explorerUrl || null,
+        registryAddress: this.config.chain.semaphoreRegistryAddress || null,
+        groupId: election.onChainGroupId,
+      },
     };
   }
 }

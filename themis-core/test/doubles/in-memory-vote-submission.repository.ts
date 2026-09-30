@@ -58,6 +58,10 @@ export class InMemoryVoteSubmissionRepository implements VoteSubmissionRepositor
     return { total: relay + chainSync, relay, chainSync };
   }
 
+  async listByElection(electionId: string): Promise<VoteSubmission[]> {
+    return this.rows.filter((row) => row.electionId === electionId).reverse();
+  }
+
   all(): VoteSubmission[] {
     return [...this.rows];
   }

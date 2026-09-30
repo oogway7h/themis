@@ -1,0 +1,12 @@
+{
+  "network": "baseSepolia",
+  "chainId": 84532,
+  "contract": "ThemisSemaphoreRegistry",
+  "address": "0xEd2622158C210F268C72e40061745B79E7554244",
+  "votingAddress": "0x52220Aa005AEE43a7a5549B7F6910211fA4fe74f",
+  "verifierAddress": "0x6dF4fECc3a843D2eC1d6f1d856597D1c20FF86AC",
+  "poseidonAddress": "0xc7a298eACDfcAA5b23B0a87FaB25aA86CEa5c191",
+  "deployer": "0xce011E9Ea9AE26e5DA9B9Bf5208028c1e0d53246",
+  "blockNumber": 47512755,
+  "deployedAt": "2026-09-30T18:43:06.943Z"
+}

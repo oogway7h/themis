@@ -38,6 +38,8 @@ import type { AppConfig } from './configuration';
             'SEMAPHORE_REGISTRY_ADDRESS',
           ),
           VOTING_CONTRACT_ADDRESS: configService.get('VOTING_CONTRACT_ADDRESS'),
+          CHAIN_START_BLOCK: configService.get('CHAIN_START_BLOCK'),
+          EXPLORER_URL: configService.get('EXPLORER_URL'),
           SSO_MOCK_SECRET: configService.get('SSO_MOCK_SECRET'),
           SSO_MOCK_TOKEN_TTL_SECONDS: configService.get(
             'SSO_MOCK_TOKEN_TTL_SECONDS',

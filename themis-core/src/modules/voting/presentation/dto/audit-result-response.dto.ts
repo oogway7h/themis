@@ -45,6 +45,40 @@ class VoteSubmissionCountsDto {
   chainSync!: number;
 }
 
+class AuditVoteDto {
+  @ApiProperty()
+  nullifier!: string;
+
+  @ApiProperty()
+  optionNombre!: string;
+
+  @ApiProperty({ enum: ['RELAY', 'CHAIN_SYNC'] })
+  source!: string;
+
+  @ApiProperty({ nullable: true })
+  onChainTxHash!: string | null;
+
+  @ApiProperty({ nullable: true })
+  blockNumber!: number | null;
+
+  @ApiProperty()
+  submittedAt!: Date;
+}
+
+class AuditChainInfoDto {
+  @ApiProperty()
+  chainId!: number;
+
+  @ApiProperty({ nullable: true, description: 'Base del explorador de bloques, null en Hardhat local' })
+  explorerUrl!: string | null;
+
+  @ApiProperty({ nullable: true })
+  registryAddress!: string | null;
+
+  @ApiProperty({ nullable: true })
+  groupId!: string | null;
+}
+
 export class AuditResultResponseDto {
   @ApiProperty()
   electionId!: string;
@@ -64,6 +98,12 @@ export class AuditResultResponseDto {
   @ApiProperty({ type: VoteSubmissionCountsDto })
   voteSubmissionCounts!: VoteSubmissionCountsDto;
 
+  @ApiProperty({ type: [AuditVoteDto] })
+  votes!: AuditVoteDto[];
+
+  @ApiProperty({ type: AuditChainInfoDto })
+  chain!: AuditChainInfoDto;
+
   static fromResult(result: AuditResult): AuditResultResponseDto {
     const dto = new AuditResultResponseDto();
     dto.electionId = result.electionId;
@@ -72,6 +112,8 @@ export class AuditResultResponseDto {
     dto.liveTally = result.liveTally;
     dto.chainSync = result.chainSync;
     dto.voteSubmissionCounts = result.voteSubmissionCounts;
+    dto.votes = result.votes;
+    dto.chain = result.chain;
     return dto;
   }
 }

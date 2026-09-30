@@ -2,6 +2,7 @@ import { CreateElectionUseCase } from '../../elections/application/create-electi
 import { ElectionNotFoundError } from '../../elections/application/election.errors';
 import { GetAuditResultUseCase } from './get-audit-result.usecase';
 import { GetLiveTallyUseCase } from './get-live-tally.usecase';
+import type { AppConfig } from '../../../config/configuration';
 import { InMemoryElectionRepository } from '../../../../test/doubles/in-memory-election.repository';
 import { InMemoryVoteSubmissionRepository } from '../../../../test/doubles/in-memory-vote-submission.repository';
 import { InMemoryChainSyncStateRepository } from '../../../../test/doubles/in-memory-chain-sync-state.repository';
@@ -25,6 +26,13 @@ describe('GetAuditResultUseCase', () => {
       chainSyncStateRepository,
       electionResultRepository,
       new GetLiveTallyUseCase(electionRepository, voteSubmissionRepository),
+      {
+        chain: {
+          chainId: 84532,
+          explorerUrl: 'https://sepolia.basescan.org',
+          semaphoreRegistryAddress: '0xregistry',
+        },
+      } as AppConfig,
     );
   });
 
@@ -73,6 +81,14 @@ describe('GetAuditResultUseCase', () => {
     expect(audit.chainSync).toBeNull();
     expect(audit.liveTally.find((o) => o.optionId === election.opciones[0].id)?.voteCount).toBe(2);
     expect(audit.voteSubmissionCounts).toEqual({ total: 2, relay: 1, chainSync: 1 });
+    expect(audit.votes.map((v) => [v.nullifier, v.optionNombre, v.onChainTxHash])).toEqual([
+      ['n2', 'A', '0x2'],
+      ['n1', 'A', '0x1'],
+    ]);
+    expect(audit.chain).toMatchObject({
+      explorerUrl: 'https://sepolia.basescan.org',
+      registryAddress: '0xregistry',
+    });
   });
 
   it('despues del cierre: expone el resultado final inmutable y el estado de sincronizacion', async () => {

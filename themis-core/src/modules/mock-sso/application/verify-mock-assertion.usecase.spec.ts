@@ -14,7 +14,7 @@ function buildConfig(overrides: Partial<AppConfig['ssoMock']> = {}): AppConfig {
     database: { url: '', directUrl: '' },
     jwt: { secret: 'x'.repeat(16) },
     ai: { baseUrl: '', token: '', timeoutMs: 1000 },
-    chain: { rpcUrl: '', chainId: 1, relayerPrivateKey: '', contractAddress: '', semaphoreRegistryAddress: '' },
+    chain: { rpcUrl: '', chainId: 1, relayerPrivateKey: '', contractAddress: '', semaphoreRegistryAddress: '', startBlock: 0, explorerUrl: '' },
     ssoMock: { secret: 'x'.repeat(32), tokenTtlSeconds: 300, ...overrides },
     registrationSigning: { privateKeyJwk: '{}', publicKeyJwk: '{}' },
   };

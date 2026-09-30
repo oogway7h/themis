@@ -24,6 +24,8 @@ export interface AppConfig {
     contractAddress: string;
     semaphoreRegistryAddress: string;
     votingContractAddress?: string;
+    startBlock: number;
+    explorerUrl: string;
   };
   ssoMock: {
     secret: string;
@@ -62,6 +64,8 @@ export function buildConfig(env: Env): AppConfig {
       contractAddress: env.CONTRACT_ADDRESS,
       semaphoreRegistryAddress: env.SEMAPHORE_REGISTRY_ADDRESS,
       votingContractAddress: env.VOTING_CONTRACT_ADDRESS,
+      startBlock: env.CHAIN_START_BLOCK,
+      explorerUrl: env.EXPLORER_URL.replace(/\/+$/, ''),
     },
     ssoMock: {
       secret: env.SSO_MOCK_SECRET,

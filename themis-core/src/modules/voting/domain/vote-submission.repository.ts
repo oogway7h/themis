@@ -32,6 +32,8 @@ export interface VoteSubmissionRepository {
   countByOption(electionId: string): Promise<OptionTallyRow[]>;
   countByElection(electionId: string): Promise<number>;
   countBySource(electionId: string): Promise<VoteSubmissionSourceCounts>;
+  /** Mas reciente primero. Para la vista de auditoria (CU-15). */
+  listByElection(electionId: string): Promise<VoteSubmission[]>;
 }
 
 export const VOTE_SUBMISSION_REPOSITORY = 'VOTE_SUBMISSION_REPOSITORY';

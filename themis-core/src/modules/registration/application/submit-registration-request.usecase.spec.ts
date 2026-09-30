@@ -32,7 +32,7 @@ async function buildConfig(): Promise<AppConfig> {
     database: { url: '', directUrl: '' },
     jwt: { secret: 'x'.repeat(16) },
     ai: { baseUrl: '', token: '', timeoutMs: 1000 },
-    chain: { rpcUrl: '', chainId: 1, relayerPrivateKey: '', contractAddress: '', semaphoreRegistryAddress: '' },
+    chain: { rpcUrl: '', chainId: 1, relayerPrivateKey: '', contractAddress: '', semaphoreRegistryAddress: '', startBlock: 0, explorerUrl: '' },
     ssoMock: { secret: 'y'.repeat(32), tokenTtlSeconds: 300 },
     registrationSigning: {
       privateKeyJwk: JSON.stringify(privateKeyJwk),

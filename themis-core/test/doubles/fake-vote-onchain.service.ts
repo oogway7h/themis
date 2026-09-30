@@ -29,7 +29,14 @@ export class FakeVoteOnChainService implements VoteOnChainPort {
     return { txHash: `0xfake-vote-${this.callCount}`, blockNumber: this.currentBlock };
   }
 
-  async fetchProofValidatedEvents(): Promise<OnChainVoteEvent[]> {
+  lastRange: [number, number] | null = null;
+
+  async fetchProofValidatedEvents(
+    _groupId: string,
+    fromBlock: number,
+    toBlock: number,
+  ): Promise<OnChainVoteEvent[]> {
+    this.lastRange = [fromBlock, toBlock];
     return this.eventsToReturn;
   }
 

@@ -67,7 +67,20 @@ cp themis-core/.env.example themis-core/.env
 cp themis-ai/.env.example themis-ai/.env
 # Edita los archivos según sea necesario
 nano themis-core/.env
+chmod 600 themis-core/.env
 ```
+
+**Blockchain:** el backend usa **Base Sepolia** (testnet pública, persistente), no un nodo local. Los contratos se
+despliegan **una sola vez** desde tu máquina y sus direcciones ya están en `docker-compose.yml`. En
+`themis-core/.env` del servidor solo van los secretos:
+
+```
+RPC_URL=https://sepolia.base.org   # o tu URL de Alchemy/Infura
+RELAYER_PRIVATE_KEY=0x...          # wallet propia con ETH de faucet, NUNCA la clave de Hardhat
+```
+
+Cómo desplegar los contratos, fondear la wallet y demostrar un voto en BaseScan:
+[`themis-core/docs/despliegue-base-sepolia.md`](themis-core/docs/despliegue-base-sepolia.md).
 
 4. **Levantar los Contenedores**:
 
@@ -77,8 +90,7 @@ Desde la raíz del proyecto (donde está el archivo `docker-compose.yml` princip
 docker compose up -d --build
 ```
 Esto construirá y levantará:
-- `chain` (Blockchain local con Hardhat)
-- `core` (Backend NestJS)
+- `core` (Backend NestJS, conectado a Base Sepolia)
 - `ai` (Servicio de Inteligencia Artificial Python)
 - `web` (Frontend React/Vite)
 - `proxy` (Nginx enrutando el puerto 80)
@@ -145,5 +157,6 @@ Ahora, si visitas `https://midominio.com`, el flujo será:
    - Si la ruta es `/ai/`, se la pasa al contenedor `ai` (FastAPI).
 
 ### Notas Finales
+- Revisa el saldo de la wallet relayer en `https://sepolia.basescan.org/address/<relayer>` antes de cada demo: sin ETH, los votos fallan.
 - Si haces cambios en el código, simplemente haz un `git pull` en la instancia y ejecuta `docker compose up -d --build` para actualizar los contenedores.
 - Si el servicio de AI usa rutas internas sin `/ai/`, nuestro Nginx ya se encarga de reescribir la URL quitando el `/ai/` gracias a la instrucción `rewrite ^/ai/(.*)$ /$1 break;`.

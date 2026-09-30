@@ -5,6 +5,9 @@ blockchain. Hay dos caminos: el **script automático** (2-3 min, simula la app p
 real** con el portal web y la app móvil. El voto (CU-10) no existe todavía: esta guía llega hasta la
 inserción on-chain.
 
+> Esta guía es para el entorno **local** (Hardhat). Para probar contra la testnet de producción (Base
+> Sepolia, con los votos visibles en BaseScan), ver [despliegue-base-sepolia.md](./despliegue-base-sepolia.md).
+
 ## 1. Preparar el entorno (una vez)
 
 Requisitos: Node 24 (con Node 22 el backend corre, pero `pnpm test` falla), pnpm, Docker Desktop (solo si

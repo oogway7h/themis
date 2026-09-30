@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Cuenta #0 de Hardhat, publicada en toda la documentacion. Viene en .env.example.
+const HARDHAT_DEFAULT_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+
 export const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -23,6 +27,11 @@ export const envSchema = z.object({
   CONTRACT_ADDRESS: z.string().default(''),
   SEMAPHORE_REGISTRY_ADDRESS: z.string().default(''),
   VOTING_CONTRACT_ADDRESS: z.string().default(''),
+  // Bloque de despliegue del registro: desde aca arranca la sincronizacion de
+  // eventos en una red real (en Hardhat local da igual, arranca en 0).
+  CHAIN_START_BLOCK: z.coerce.number().int().nonnegative().default(0),
+  // Base del explorador de bloques (p. ej. https://sepolia.basescan.org). Vacio en local.
+  EXPLORER_URL: z.string().default(''),
 
   SSO_MOCK_SECRET: z.string().min(32),
   // 1 hora: el flujo del votante (login -> registro -> delay de presentacion
@@ -34,7 +43,14 @@ export const envSchema = z.object({
   // Generar con: pnpm registration:generate-signing-key
   REGISTRATION_SIGNING_PRIVATE_KEY_JWK: z.string().min(1),
   REGISTRATION_SIGNING_PUBLIC_KEY_JWK: z.string().min(1),
-});
+}).refine(
+  (env) => env.CHAIN_ID === 31337 || env.RELAYER_PRIVATE_KEY.toLowerCase() !== HARDHAT_DEFAULT_KEY,
+  {
+    path: ['RELAYER_PRIVATE_KEY'],
+    message:
+      'es la clave publica #0 de Hardhat -- en una red real los bots vacian la wallet. Usa una wallet propia.',
+  },
+);
 
 export type Env = z.infer<typeof envSchema>;
 

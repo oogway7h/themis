@@ -52,4 +52,12 @@ export class PrismaVoteSubmissionRepository implements VoteSubmissionRepository 
     const chainSync = rows.find((row) => row.source === 'CHAIN_SYNC')?._count._all ?? 0;
     return { total: relay + chainSync, relay, chainSync };
   }
+
+  async listByElection(electionId: string): Promise<VoteSubmission[]> {
+    const rows = await this.prisma.voteSubmission.findMany({
+      where: { electionId },
+      orderBy: { submittedAt: 'desc' },
+    });
+    return rows.map(voteSubmissionToDomain);
+  }
 }

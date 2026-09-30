@@ -20,16 +20,6 @@ services:
         VITE_AI_BASE_URL: "/ai"
         VITE_AI_SERVICE_TOKEN: "${AI_SERVICE_TOKEN}"
 
-  chain:
-    image: node:22-alpine
-    working_dir: /app
-    command: sh -c "corepack enable && pnpm install --frozen-lockfile && npx hardhat node --hostname 0.0.0.0"
-    environment:
-      HARDHAT_DISABLE_TELEMETRY_PROMPT: "true"
-    volumes:
-      - ./themis-core:/app
-      - chain_modules:/app/node_modules
-
   core:
     build:
       context: ./themis-core
@@ -40,10 +30,17 @@ services:
       - path: ./themis-core/.env
         required: false
     environment:
-      RPC_URL: http://chain:8545
       AI_SERVICE_URL: http://ai:8000
-    depends_on:
-      - chain
+      # Blockchain: Base Sepolia (testnet persistente, ver
+      # themis-core/docs/despliegue-base-sepolia.md). Estos valores son
+      # publicos y fijos -- se commitean, no van en .env. Los secretos
+      # (RPC_URL con API key, RELAYER_PRIVATE_KEY) si van en themis-core/.env.
+      CHAIN_ID: "84532"
+      EXPLORER_URL: https://sepolia.basescan.org
+      # Pegar lo que imprime `pnpm chain:deploy:semaphore:base-sepolia`
+      # (tambien queda en themis-core/deployments/baseSepolia-semaphore.json).
+      SEMAPHORE_REGISTRY_ADDRESS: "0xEd2622158C210F268C72e40061745B79E7554244"
+      CHAIN_START_BLOCK: "47512755"
 
   ai:
     build:
@@ -53,6 +50,3 @@ services:
         required: true
       - path: ./themis-ai/.env
         required: false
-
-volumes:
-  chain_modules:

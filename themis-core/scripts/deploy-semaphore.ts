@@ -54,7 +54,42 @@ async function main(): Promise<void> {
   );
 
   console.log(JSON.stringify(record, null, 2));
-  console.log(`\nCopia esta linea en tu .env:\nSEMAPHORE_REGISTRY_ADDRESS=${address}\nVOTING_CONTRACT_ADDRESS=${votingAddress}`);
+
+  if (network.name === 'localhost' || network.name === 'hardhat') {
+    console.log(`\nCopia esta linea en tu .env:\nSEMAPHORE_REGISTRY_ADDRESS=${address}\nVOTING_CONTRACT_ADDRESS=${votingAddress}`);
+    return;
+  }
+
+  // Red real: se verifica el codigo en el explorador para que los eventos
+  // ProofValidated aparezcan decodificados (es la demo visual del voto).
+  await verify(poseidonAddress, [], 'poseidon-solidity/PoseidonT3.sol:PoseidonT3');
+  await verify(verifierAddress, []);
+  await verify(
+    address,
+    [verifierAddress],
+    'contracts/ThemisSemaphoreRegistry.sol:ThemisSemaphoreRegistry',
+    { PoseidonT3: poseidonAddress },
+  );
+
+  console.log(
+    `\nCommitea deployments/${network.name}-semaphore.json y pon en docker-compose.yml (core.environment):\n` +
+      `SEMAPHORE_REGISTRY_ADDRESS: "${address}"\nCHAIN_START_BLOCK: "${blockNumber}"`,
+  );
+}
+
+async function verify(
+  address: string,
+  constructorArguments: unknown[],
+  contract?: string,
+  libraries?: Record<string, string>,
+): Promise<void> {
+  try {
+    await hre.run('verify:verify', { address, constructorArguments, contract, libraries });
+  } catch (error) {
+    // "Already verified" o el explorador todavia no indexo el bytecode: no
+    // invalida el despliegue, se reintenta a mano con `pnpm hardhat verify`.
+    console.warn(`No se pudo verificar ${address}: ${(error as Error).message}`);
+  }
 }
 
 main().catch((error) => {

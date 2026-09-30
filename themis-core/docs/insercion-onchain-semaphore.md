@@ -43,6 +43,11 @@ transacciones a ese nodo, las direcciones cambian y hay que actualizar el `.env`
 fácil y `tsc` no la detecta por un cast). Si falta, el backend arranca pero la inserción falla con un
 mensaje claro.
 
+## Despliegue en producción (Base Sepolia)
+
+En AWS no se usa un nodo Hardhat: los contratos están en Base Sepolia, desplegados una vez y verificados en
+BaseScan. Ver [despliegue-base-sepolia.md](./despliegue-base-sepolia.md).
+
 ## Cómo funciona la inserción
 
 `SemaphoreOnChainService` (`src/modules/checkpoints/infrastructure/semaphore-onchain.service.ts`)
