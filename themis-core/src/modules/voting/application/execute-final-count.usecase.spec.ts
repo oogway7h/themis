@@ -4,12 +4,14 @@ import { InMemoryElectionRepository } from '../../../../test/doubles/in-memory-e
 import { InMemoryVoteSubmissionRepository } from '../../../../test/doubles/in-memory-vote-submission.repository';
 import { InMemoryChainSyncStateRepository } from '../../../../test/doubles/in-memory-chain-sync-state.repository';
 import { InMemoryElectionResultRepository } from '../../../../test/doubles/in-memory-election-result.repository';
+import { FakeVoteOnChainService } from '../../../../test/doubles/fake-vote-onchain.service';
 
 describe('ExecuteFinalCountUseCase', () => {
   let electionRepository: InMemoryElectionRepository;
   let voteSubmissionRepository: InMemoryVoteSubmissionRepository;
   let chainSyncStateRepository: InMemoryChainSyncStateRepository;
   let electionResultRepository: InMemoryElectionResultRepository;
+  let onChain: FakeVoteOnChainService;
   let useCase: ExecuteFinalCountUseCase;
 
   beforeEach(() => {
@@ -17,11 +19,13 @@ describe('ExecuteFinalCountUseCase', () => {
     voteSubmissionRepository = new InMemoryVoteSubmissionRepository();
     chainSyncStateRepository = new InMemoryChainSyncStateRepository();
     electionResultRepository = new InMemoryElectionResultRepository();
+    onChain = new FakeVoteOnChainService();
     useCase = new ExecuteFinalCountUseCase(
       electionRepository,
       voteSubmissionRepository,
       chainSyncStateRepository,
       electionResultRepository,
+      onChain,
     );
   });
 
@@ -107,5 +111,48 @@ describe('ExecuteFinalCountUseCase', () => {
     await expect(useCase.execute()).resolves.toBeUndefined();
     const secondResult = await electionResultRepository.findByElection(election.id);
     expect(secondResult?.totalVotes).toBe(firstResult?.totalVotes);
+  });
+
+  it('espera si la sincronizacion todavia no alcanzo el cierre, y congela cuando lo alcanza', async () => {
+    const election = await createClosedElectionWithVotes();
+    // Ultimo bloque sincronizado es de antes de votacionFin (2026-01-12).
+    onChain.blockTimestamp = new Date('2026-01-11T23:59:00Z');
+
+    await useCase.execute();
+    expect(await electionResultRepository.findByElection(election.id)).toBeNull();
+
+    onChain.blockTimestamp = new Date('2026-01-12T00:01:00Z');
+    await useCase.execute();
+    expect((await electionResultRepository.findByElection(election.id))?.totalVotes).toBe(1);
+  });
+
+  it('espera si el nodo RPC todavia no conoce el bloque sincronizado', async () => {
+    const election = await createClosedElectionWithVotes();
+    onChain.blockTimestamp = null;
+
+    await useCase.execute();
+
+    expect(await electionResultRepository.findByElection(election.id)).toBeNull();
+  });
+
+  it('sin grupo on-chain (sin votos posibles) congela de inmediato', async () => {
+    const createElection = new CreateElectionUseCase(electionRepository);
+    const election = await createElection.execute(
+      {
+        nombre: 'Sin grupo',
+        registroInicio: new Date('2026-01-01T00:00:00Z'),
+        registroFin: new Date('2026-01-10T00:00:00Z'),
+        votacionInicio: new Date('2026-01-10T00:00:00Z'),
+        votacionFin: new Date('2026-01-12T00:00:00Z'),
+        opciones: [{ nombre: 'A' }, { nombre: 'B' }],
+      },
+      'admin-1',
+    );
+    electionRepository.forceStatus(election.id, 'CERRADA');
+    onChain.blockTimestamp = null;
+
+    await useCase.execute();
+
+    expect((await electionResultRepository.findByElection(election.id))?.totalVotes).toBe(0);
   });
 });

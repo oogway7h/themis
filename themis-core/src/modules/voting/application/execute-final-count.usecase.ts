@@ -16,6 +16,7 @@ import {
   ELECTION_RESULT_REPOSITORY,
   ElectionResultRepository,
 } from '../domain/election-result.repository';
+import { VOTE_ONCHAIN_PORT, VoteOnChainPort } from '../domain/vote-onchain.port';
 
 interface PrismaKnownRequestErrorLike {
   code?: string;
@@ -49,6 +50,8 @@ export class ExecuteFinalCountUseCase {
     private readonly chainSyncStateRepository: ChainSyncStateRepository,
     @Inject(ELECTION_RESULT_REPOSITORY)
     private readonly electionResultRepository: ElectionResultRepository,
+    @Inject(VOTE_ONCHAIN_PORT)
+    private readonly onChain: VoteOnChainPort,
   ) {}
 
   async execute(): Promise<void> {
@@ -71,9 +74,28 @@ export class ExecuteFinalCountUseCase {
       return;
     }
 
+    const syncState = await this.chainSyncStateRepository.findByElection(election.id);
+
+    // Los votos que entran por la app solo llegan a vote_submissions via
+    // SyncVoteEventsUseCase, que avanza por tramos. Congelar el resultado
+    // antes de que la sincronizacion pase el cierre dejaria votos afuera
+    // de un snapshot inmutable: se espera y se reintenta en el proximo tick.
+    // Sin grupo on-chain no hay votos posibles, se cierra de inmediato.
+    if (election.onChainGroupId !== null) {
+      const syncedUpTo = syncState
+        ? await this.onChain.getBlockTimestamp(syncState.lastSyncedBlock)
+        : null;
+      if (!syncedUpTo || syncedUpTo < election.votacionFin) {
+        this.logger.log(
+          `Conteo final de election=${election.id} en espera: la sincronizacion on-chain ` +
+            `todavia no alcanza el cierre de la votacion`,
+        );
+        return;
+      }
+    }
+
     const counts = await this.voteSubmissionRepository.countByOption(election.id);
     const totalVotes = counts.reduce((sum, row) => sum + row.voteCount, 0);
-    const syncState = await this.chainSyncStateRepository.findByElection(election.id);
 
     try {
       await this.electionResultRepository.create({

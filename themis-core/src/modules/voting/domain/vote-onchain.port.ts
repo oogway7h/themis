@@ -51,6 +51,8 @@ export interface VoteOnChainPort {
     toBlock: number,
   ): Promise<OnChainVoteEvent[]>;
   getCurrentBlockNumber(): Promise<number>;
+  /** null si el nodo RPC todavia no conoce ese bloque. */
+  getBlockTimestamp(blockNumber: number): Promise<Date | null>;
 }
 
 export const VOTE_ONCHAIN_PORT = 'VOTE_ONCHAIN_PORT';

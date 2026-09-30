@@ -117,6 +117,11 @@ export class SemaphoreVoteOnChainService implements VoteOnChainPort {
     return this.blockchain.getProvider().getBlockNumber();
   }
 
+  async getBlockTimestamp(blockNumber: number): Promise<Date | null> {
+    const block = await this.blockchain.getProvider().getBlock(blockNumber);
+    return block ? new Date(block.timestamp * 1000) : null;
+  }
+
   private mapOnChainError(error: unknown): VoteOnChainError | null {
     const data = this.extractRevertData(error);
     if (!data) {

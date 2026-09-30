@@ -43,4 +43,11 @@ export class FakeVoteOnChainService implements VoteOnChainPort {
   async getCurrentBlockNumber(): Promise<number> {
     return this.currentBlock;
   }
+
+  /** Por defecto, cualquier bloque es "posterior a todo" (sync ya al dia). */
+  blockTimestamp: Date | null = new Date('2100-01-01T00:00:00Z');
+
+  async getBlockTimestamp(): Promise<Date | null> {
+    return this.blockTimestamp;
+  }
 }
